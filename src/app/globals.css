@@ -1,0 +1,142 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-dm-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-dm-sans);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  /* Trendz brand palette */
+  --color-ink: var(--ink);
+  --color-surface: var(--surface);
+  --color-lime: var(--lime);
+  --color-lilac: var(--lilac);
+  --color-mint: var(--mint);
+  --color-mango: var(--mango);
+  --color-sky: var(--sky);
+  --color-blush: var(--blush);
+  --color-savings: var(--savings);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --radius: 0.5rem;
+
+  /* Near-black actions on quiet greys; lime and lilac are for merchandising only. */
+  --ink: #110f15;
+  --surface: #f8f9fc;
+  --lime: #e3f77e;
+  --lilac: #e4d8f8;
+  --mint: #d0fbde;
+  --mango: #fbe0b1;
+  --sky: #ecf0fe;
+  --blush: #ffedeb;
+  --savings: #006b40;
+
+  --background: #ffffff;
+  --foreground: var(--ink);
+  --card: #ffffff;
+  --card-foreground: var(--ink);
+  --popover: #ffffff;
+  --popover-foreground: var(--ink);
+  --primary: #110f15;
+  --primary-foreground: #ffffff;
+  --secondary: #f2f3f7;
+  --secondary-foreground: var(--ink);
+  --muted: #f2f3f7;
+  --muted-foreground: #5b5d62;
+  --accent: #f6f2fd;
+  --accent-foreground: #441877;
+  --destructive: #b71029;
+  --border: #dfe1e7;
+  --input: #c3c5cb;
+  --ring: #9351f6;
+}
+
+.dark {
+  --ink: #f2f3f7;
+  --surface: #17151c;
+  --lime: #4c5519;
+  --lilac: #3a2d52;
+  --mint: #143d2a;
+  --mango: #4a3a1c;
+  --sky: #252b45;
+  --blush: #4a2528;
+  --savings: #37c37f;
+
+  --background: #110f15;
+  --foreground: var(--ink);
+  --card: #1c1a22;
+  --card-foreground: var(--ink);
+  --popover: #1c1a22;
+  --popover-foreground: var(--ink);
+  --primary: #ffffff;
+  --primary-foreground: #110f15;
+  --secondary: #2a2830;
+  --secondary-foreground: var(--ink);
+  --muted: #2a2830;
+  --muted-foreground: #aaacb1;
+  --accent: #2c2240;
+  --accent-foreground: #e4d8f8;
+  --destructive: #ff8585;
+  --border: rgb(255 255 255 / 12%);
+  --input: rgb(255 255 255 / 18%);
+  --ring: #c69dec;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Urdu: Naskh for Urdu script, the Latin font for model names and numbers. */
+html[lang="ur"] {
+  font-family: var(--font-naskh), var(--font-dm-sans), sans-serif;
+  line-height: 1.75;
+}

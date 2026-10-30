@@ -1,0 +1,308 @@
+"use client";
+
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import {
+  BanknoteIcon,
+  ShieldCheckIcon,
+  ShoppingCartIcon,
+  StoreIcon,
+  TruckIcon,
+  Undo2Icon,
+} from "lucide-react";
+import { toast } from "sonner";
+import { addToCartAction } from "@/app/actions/cart";
+import { useI18n } from "@/components/i18n/lang-provider";
+import { ProductGallery } from "@/components/product/product-gallery";
+import { Button } from "@/components/ui/button";
+import { type Dict, optionName, optionValueLabel } from "@/i18n";
+import {
+  findVariant,
+  type OfferSummary,
+  type Picker,
+  pickerStates,
+  savingsPercent,
+  type Selection,
+  selectionToParams,
+  selectValue,
+  type VariantSummary,
+} from "@/lib/pricing";
+import { formatPkr, site } from "@/lib/site";
+import { cn } from "@/lib/utils";
+
+type Props = {
+  name: string;
+  brand: string;
+  releaseYear: number | null;
+  kind: string;
+  images: string[];
+  newPrice: number | null;
+  pickers: Picker[];
+  variants: VariantSummary[];
+  initialSelection: Selection;
+};
+
+export function ProductPurchase({ name, brand, releaseYear, kind, images, newPrice, pickers, variants, initialSelection }: Props) {
+  const router = useRouter();
+  const { t, href } = useI18n();
+  const [selection, setSelection] = useState(initialSelection);
+  const [chosenOfferId, setChosenOfferId] = useState<string | null>(null);
+  const [adding, startAdding] = useTransition();
+
+  const variant = useMemo(() => findVariant(variants, selection), [variants, selection]);
+  const offers = variant?.offers ?? [];
+  const offer = offers.find((o) => o.id === chosenOfferId) ?? offers[0] ?? null;
+
+  const colorPicker = pickers.find((p) => p.type === "COLOR");
+  const colorHex = colorPicker?.values.find((v) => v.id === selection[colorPicker.id])?.colorHex ?? undefined;
+  const summary = pickers
+    .map((p) => {
+      const value = p.values.find((v) => v.id === selection[p.id]);
+      return value && optionValueLabel(t, p.type, value);
+    })
+    .filter(Boolean);
+
+  function choose(pickerId: string, valueId: string) {
+    const next = selectValue(pickers, variants, selection, pickerId, valueId);
+    setSelection(next);
+    setChosenOfferId(null);
+    // Keep the URL shareable without a server round trip.
+    window.history.replaceState(null, "", `?${selectionToParams(pickers, next)}`);
+  }
+
+  function addToCart() {
+    if (!offer) return;
+    startAdding(async () => {
+      const result = await addToCartAction(offer.id);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(result.capped ? t.product.maxInCart : t.product.added, {
+        description: `${name} · ${summary.join(" · ")}`,
+        action: { label: t.product.viewCart, onClick: () => router.push(href("/cart")) },
+      });
+    });
+  }
+
+  return (
+    <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
+      <div className="lg:sticky lg:top-36 lg:self-start">
+        <ProductGallery name={name} images={images} kind={kind} colorHex={colorHex} />
+      </div>
+
+      <div className="space-y-6">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">
+            {brand}
+            {releaseYear && ` · ${releaseYear}`} · {t.product.refurbished}
+          </p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight md:text-4xl">{name}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{summary.join(" · ")}</p>
+        </div>
+
+        <PriceBlock t={t} offer={offer} newPrice={newPrice} />
+
+        <Button size="lg" className="hidden h-12 w-full text-base lg:flex" disabled={!offer || adding} onClick={addToCart}>
+          <ShoppingCartIcon data-icon="inline-start" />
+          {offer ? t.product.addToCart : t.product.unavailableButton}
+        </Button>
+
+        {offer && <Perks t={t} offer={offer} />}
+
+        <div className="space-y-6 border-t pt-6">
+          {pickers.map((picker) => (
+            <PickerGroup
+              key={picker.id}
+              t={t}
+              picker={picker}
+              states={pickerStates(picker, variants, selection)}
+              selected={selection[picker.id]}
+              onSelect={(valueId) => choose(picker.id, valueId)}
+            />
+          ))}
+        </div>
+
+        {offers.length > 1 && (
+          <OtherOffers t={t} offers={offers} selectedId={offer?.id} onSelect={setChosenOfferId} />
+        )}
+      </div>
+
+      {/* Mobile: price and button stay reachable while scrolling the pickers. */}
+      <div
+        data-sticky-buy-bar
+        className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur lg:hidden"
+      >
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs text-muted-foreground">{summary.join(" · ")}</p>
+          <p className="text-lg font-semibold">{offer ? formatPkr(offer.price) : t.product.unavailableButton}</p>
+        </div>
+        <Button size="lg" className="h-11 px-6" disabled={!offer || adding} onClick={addToCart}>
+          {t.product.addToCart}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function PriceBlock({ t, offer, newPrice }: { t: Dict; offer: OfferSummary | null; newPrice: number | null }) {
+  if (!offer) {
+    return (
+      <p className="rounded-xl bg-secondary px-4 py-3 text-sm">{t.product.unavailable}</p>
+    );
+  }
+  const saving = newPrice ? newPrice - offer.price : 0;
+  return (
+    <div>
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <p className="text-4xl font-semibold tracking-tight">{formatPkr(offer.price)}</p>
+        {saving > 0 && newPrice && (
+          <>
+            <p className="text-sm text-muted-foreground">
+              <span className="line-through">{formatPkr(newPrice)}</span> {t.common.new}
+            </p>
+            <span className="rounded-full bg-mint px-2.5 py-0.5 text-sm font-bold text-savings">
+              {t.product.save(formatPkr(saving), savingsPercent(offer.price, newPrice))}
+            </span>
+          </>
+        )}
+      </div>
+      {offer.stock <= 2 && <p className="mt-2 text-sm font-semibold text-destructive">{t.product.onlyLeft(offer.stock)}</p>}
+    </div>
+  );
+}
+
+function Perks({ t, offer }: { t: Dict; offer: OfferSummary }) {
+  const items = [
+    { icon: TruckIcon, text: t.product.perks.delivery },
+    { icon: BanknoteIcon, text: t.product.perks.payment },
+    { icon: ShieldCheckIcon, text: t.common.monthWarranty(offer.warrantyMonths) },
+    { icon: Undo2Icon, text: t.common.dayReturns(site.returnDays) },
+    { icon: StoreIcon, text: t.product.perks.soldBy(offer.seller.name, offer.seller.city) },
+  ];
+  return (
+    <ul className="space-y-2.5 rounded-2xl border p-4 text-sm">
+      {items.map(({ icon: Icon, text }) => (
+        <li key={text} className="flex items-center gap-3">
+          <Icon className="size-4.5 shrink-0 text-primary" />
+          {text}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function PickerGroup({
+  t,
+  picker,
+  states,
+  selected,
+  onSelect,
+}: {
+  t: Dict;
+  picker: Picker;
+  states: ReturnType<typeof pickerStates>;
+  selected: string;
+  onSelect: (valueId: string) => void;
+}) {
+  const help =
+    picker.type === "CONDITION"
+      ? { href: "#condition-guide", label: t.product.gradesHelp }
+      : picker.type === "SIM"
+        ? { href: "#pta", label: t.product.ptaHelp }
+        : null;
+  const selectedValue = picker.values.find((v) => v.id === selected);
+  const conditionNote = picker.type === "CONDITION" && selectedValue ? t.conditions[selectedValue.value]?.summary : null;
+
+  return (
+    <fieldset>
+      <div className="mb-2.5 flex items-baseline justify-between gap-4">
+        <legend className="font-semibold">
+          {optionName(t, picker.name)}
+          {picker.type === "COLOR" && selectedValue && <span className="font-normal text-muted-foreground">: {selectedValue.label}</span>}
+        </legend>
+        {help && (
+          <a href={help.href} className="text-sm font-medium text-primary hover:underline">
+            {help.label}
+          </a>
+        )}
+      </div>
+      <div className={cn("grid gap-2", picker.values.length > 2 ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2")}>
+        {picker.values.map((value) => {
+          const state = states.find((s) => s.valueId === value.id)!;
+          const isSelected = value.id === selected;
+          const disabled = state.status === "unavailable";
+          return (
+            <button
+              key={value.id}
+              type="button"
+              disabled={disabled}
+              aria-pressed={isSelected}
+              onClick={() => onSelect(value.id)}
+              className={cn(
+                "flex min-h-14 items-center gap-2.5 rounded-xl border px-3 py-2 text-start transition",
+                isSelected ? "border-primary bg-accent ring-2 ring-primary/30" : "hover:border-foreground/30",
+                disabled && "cursor-not-allowed opacity-45",
+              )}
+            >
+              {value.colorHex && (
+                <span className="size-5 shrink-0 rounded-full border border-black/10" style={{ backgroundColor: value.colorHex }} />
+              )}
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold">{optionValueLabel(t, picker.type, value)}</span>
+                <span className={cn("block text-xs", state.status === "exact" ? "text-foreground/70" : "text-muted-foreground")}>
+                  {disabled ? t.common.soldOut : state.status === "exact" ? formatPkr(state.price!) : t.common.fromPrice(formatPkr(state.price!))}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {conditionNote && <p className="mt-2 text-sm text-muted-foreground">{conditionNote}</p>}
+    </fieldset>
+  );
+}
+
+function OtherOffers({
+  t,
+  offers,
+  selectedId,
+  onSelect,
+}: {
+  t: Dict;
+  offers: OfferSummary[];
+  selectedId?: string;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <fieldset className="border-t pt-6">
+      <legend className="mb-2.5 font-semibold">{t.product.otherSellers(offers.length)}</legend>
+      <div className="space-y-2">
+        {offers.map((o) => (
+          <label
+            key={o.id}
+            className={cn(
+              "flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition",
+              o.id === selectedId ? "border-primary bg-accent" : "hover:border-foreground/30",
+            )}
+          >
+            <input
+              type="radio"
+              name="offer"
+              className="accent-[var(--primary)]"
+              checked={o.id === selectedId}
+              onChange={() => onSelect(o.id)}
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold">{o.seller.name}</span>
+              <span className="block text-xs text-muted-foreground">
+                {o.seller.city} · {t.common.monthWarranty(o.warrantyMonths)}
+              </span>
+            </span>
+            <span className="font-bold">{formatPkr(o.price)}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
