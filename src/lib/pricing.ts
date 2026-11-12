@@ -48,9 +48,10 @@ export type ValueState = {
   /**
    * exact: buyable with the other current choices.
    * alternative: buyable, but other choices will change to make it work.
-   * unavailable: nobody sells this value right now.
+   * soldout: this value exists on the page but none is in stock right now (still selectable, shown as out of stock).
+   * unavailable: nobody has this value at all.
    */
-  status: "exact" | "alternative" | "unavailable";
+  status: "exact" | "alternative" | "soldout" | "unavailable";
   price: number | null;
 };
 
@@ -82,7 +83,7 @@ export function pickerStates(
     if (exact && inStock(exact)) return { valueId: value.id, status: "exact", price: cheapest(exact) };
 
     const prices = variants.filter((v) => inStock(v) && v.valueIds.includes(value.id)).map(cheapest);
-    if (prices.length === 0) return { valueId: value.id, status: "unavailable", price: null };
+    if (prices.length === 0) return { valueId: value.id, status: variants.some((v) => v.valueIds.includes(value.id)) ? "soldout" : "unavailable", price: null };
     return { valueId: value.id, status: "alternative", price: Math.min(...prices) };
   });
 }
@@ -103,7 +104,8 @@ export function selectValue(
   const exact = findVariant(variants, next);
   if (exact && inStock(exact)) return next;
 
-  const candidates = variants.filter((v) => inStock(v) && v.valueIds.includes(valueId));
+  const buyable = variants.filter((v) => inStock(v) && v.valueIds.includes(valueId));
+  const candidates = buyable.length ? buyable : variants.filter((v) => v.valueIds.includes(valueId)); // a sold-out option can still be looked at
   if (candidates.length === 0) return selection;
 
   const score = (v: VariantSummary) =>

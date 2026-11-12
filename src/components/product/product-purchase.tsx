@@ -264,7 +264,7 @@ function PickerGroup({
               <span className="min-w-0">
                 <span className="block truncate text-sm font-semibold">{optionValueLabel(t, picker.type, value)}</span>
                 <span className={cn("block text-xs", state.status === "exact" ? "text-foreground/70" : "text-muted-foreground")}>
-                  {disabled ? t.common.soldOut : state.status === "exact" ? formatPkr(state.price!) : t.common.fromPrice(formatPkr(state.price!))}
+                  {disabled || state.status === "soldout" ? t.common.soldOut : state.status === "exact" ? formatPkr(state.price!) : t.common.fromPrice(formatPkr(state.price!))}
                 </span>
               </span>
             </button>

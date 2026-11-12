@@ -91,6 +91,7 @@ function OrderDetails({ order, justPlaced }: { order: OrderStatus; justPlaced: b
           <span className={`rounded-full px-3 py-1 text-sm font-semibold ${cancelled ? "bg-destructive/10 text-destructive" : "bg-mint text-savings"}`}>
             {t.track.statuses[order.status] ?? order.status}
           </span>
+          {order.stage && order.stage !== order.status && <p className="w-full text-sm text-muted-foreground">{order.stage}</p>}
         </div>
 
         {!cancelled && (

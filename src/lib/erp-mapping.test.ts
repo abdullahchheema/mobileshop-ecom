@@ -64,10 +64,14 @@ describe("navigation and listing", () => {
     expect(navCategories(ix).map((c) => [c.name, c.slug, c.icon])).toEqual([["Accessories", "accessories", "smartphone"], ["Phones", "phones", "smartphone"]]);
   });
 
-  it("lists models that have stock, cheapest price first on request, and hides sold-out models", () => {
+  it("lists models with stock first (cheapest first on request) and keeps sold-out models at the end, marked out of stock", () => {
     const all = listing(ix, filters({ sort: "price-asc" }), 24);
-    expect(all.items.map((c) => [c.slug, c.fromPrice])).toEqual([["airpods-2", 4500], ["iphone-11", 39500]]);
-    expect(all.total).toBe(2);
+    expect(all.items.map((c) => [c.slug, c.fromPrice, c.soldOut])).toEqual([["airpods-2", 4500, false], ["iphone-11", 39500, false], ["pixel-6", 0, true]]);
+    expect(all.total).toBe(3);
+  });
+  it("hides a sold-out model only when a filter needs stock", () => {
+    expect(listing(ix, filters({ storages: ["128gb"] }), 24).items.map((c) => c.slug)).not.toContain("pixel-6");
+    expect(listing(ix, filters({ minPrice: 100 }), 24).items.map((c) => c.slug)).not.toContain("pixel-6");
   });
 
   it("shows the was-price saving on the card", () => {
@@ -86,14 +90,14 @@ describe("navigation and listing", () => {
   it("searches title, brand and category, with every word required", () => {
     expect(listing(ix, filters({ q: "iphone 11" }), 24).total).toBe(1);
     expect(listing(ix, filters({ q: "apple" }), 24).total).toBe(2);
-    expect(listing(ix, filters({ q: "pixel" }), 24).total).toBe(0); // sold out
+    expect(listing(ix, filters({ q: "pixel" }), 24).items.map((c) => c.soldOut)).toEqual([true]); // sold out, still found
     expect(listing(ix, filters({ q: "iphone galaxy" }), 24).total).toBe(0);
   });
 
   it("applies price range and pagination", () => {
     expect(listing(ix, filters({ minPrice: 10000 }), 24).items.map((c) => c.slug)).toEqual(["iphone-11"]);
     const paged = listing(ix, filters(), 1);
-    expect([paged.items.length, paged.pageCount, paged.total]).toEqual([1, 2, 2]);
+    expect([paged.items.length, paged.pageCount, paged.total]).toEqual([1, 3, 3]);
   });
 
   it("offers only filter choices that exist", () => {
@@ -142,7 +146,8 @@ describe("product page", () => {
   it("returns null for an unknown model and an empty buy box for a sold-out one", () => {
     expect(productPage(ix, "nope")).toBeNull();
     const sold = productPage(ix, "pixel-6")!;
-    expect(sold.variants).toEqual([]);
-    expect(sold.pickers).toEqual([]);
+    expect(sold.soldOut).toBe(true);
+    expect(sold.variants.every((x) => x.offers.length === 0)).toBe(true);      // nothing can be bought…
+    expect(sold.name).toBe("Pixel 6");                                          // …but the page and its details stay
   });
 });

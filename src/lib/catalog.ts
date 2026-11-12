@@ -15,11 +15,14 @@ export type { Facets, NavCategory, ProductCardData, ProductPageData } from "@/li
 
 const PAGE = 1000; // PostgREST returns at most this many rows per request
 
-async function readAll<T>(table: string): Promise<T[]> {
+async function readAll<T>(table: string, order: string[]): Promise<T[]> {
   const sb = getSupabase();
   const rows: T[] = [];
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await sb.from(table).select("*").range(from, from + PAGE - 1);
+    // An explicit order is what makes paging safe: without it Postgres may repeat or skip rows between pages.
+    let query = sb.from(table).select("*");
+    for (const column of order) query = query.order(column, { ascending: true });
+    const { data, error } = await query.range(from, from + PAGE - 1);
     if (error) throw new Error(`${table}: ${error.message}`);
     rows.push(...((data ?? []) as T[]));
     if (!data || data.length < PAGE) return rows;
@@ -32,11 +35,11 @@ async function getCatalogue(): Promise<Catalogue> {
 
   try {
     const [families, listings, variants, images, stock] = await Promise.all([
-      readAll<Catalogue["families"][number]>("web_families"),
-      readAll<Catalogue["listings"][number]>("web_listings"),
-      readAll<Catalogue["variants"][number]>("web_variants"),
-      readAll<Catalogue["images"][number]>("web_images"),
-      readAll<Catalogue["stock"][number]>("web_variant_stock"),
+      readAll<Catalogue["families"][number]>("web_families", ["family_slug"]),
+      readAll<Catalogue["listings"][number]>("web_listings", ["product_id"]),
+      readAll<Catalogue["variants"][number]>("web_variants", ["product_id", "condition", "pta_status", "device_type", "price"]),
+      readAll<Catalogue["images"][number]>("web_images", ["image_id"]),
+      readAll<Catalogue["stock"][number]>("web_variant_stock", ["product_id", "condition", "pta_status", "device_type", "price", "shop_id"]),
     ]);
     return { families, listings, variants, images, stock };
   } catch (e) {

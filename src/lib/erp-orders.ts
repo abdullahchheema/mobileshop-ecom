@@ -104,6 +104,8 @@ export async function placeErpOrder(order: OrderInput, doFetch: typeof fetch = f
 export type OrderStatus = {
   ref: string;
   status: string; // New | Dispatched | Delivered | Cancelled
+  /** The step inside the status: Confirmed, Processing, Ready for Dispatch, In Transit, Return Requested, Returned, Refunded… */
+  stage: string | null;
   paymentStatus: string | null;
   courier: string | null;
   tracking: string | null;
@@ -127,6 +129,7 @@ export async function getErpOrder(ref: string): Promise<OrderStatus | null> {
   return {
     ref: String(b.external_ref ?? ref),
     status: String(b.status ?? "New"),
+    stage: b.stage ? String(b.stage) : null,
     paymentStatus: b.payment_status ? String(b.payment_status) : null,
     courier: b.courier ? String(b.courier) : null,
     tracking: b.tracking ? String(b.tracking) : null,

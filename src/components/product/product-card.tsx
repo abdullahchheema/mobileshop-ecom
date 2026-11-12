@@ -66,9 +66,15 @@ export function ProductCard({
         </p>
 
         <div className="mt-auto pt-3">
-          <p className="text-xs text-muted-foreground">{t.common.from}</p>
-          <p className="text-lg leading-tight font-semibold">{formatPkr(product.fromPrice)}</p>
-          {product.newPrice && product.newPrice > product.fromPrice && (
+          {product.soldOut ? (
+            <p className="text-lg leading-tight font-semibold text-muted-foreground">{t.common.soldOut}</p>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground">{t.common.from}</p>
+              <p className="text-lg leading-tight font-semibold">{formatPkr(product.fromPrice)}</p>
+            </>
+          )}
+          {!product.soldOut && product.newPrice && product.newPrice > product.fromPrice && (
             <>
               <p className="text-xs font-medium text-savings">{t.card.saveAmount(formatPkr(product.newPrice - product.fromPrice))}</p>
               <p className="text-xs text-muted-foreground">

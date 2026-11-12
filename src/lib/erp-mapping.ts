@@ -73,6 +73,8 @@ export type ProductCardData = {
   newPrice: number | null;
   savings: number;
   offerCount: number;
+  /** Nothing of this page is in stock right now. The page stays; only buying is switched off. */
+  soldOut: boolean;
 };
 
 export type Facets = {
@@ -164,6 +166,16 @@ function cardFor(ix: Index, f: FamilyRow, rows: { variant: VariantRow; listing: 
     newPrice,
     savings: newPrice ? savingsPercent(price, newPrice) : 0,
     offerCount: rows.length,
+    soldOut: false,
+  };
+}
+
+/** A page with no stock at all: it keeps its photo, name and address, shows no price, and cannot be bought. */
+function soldOutCard(ix: Index, f: FamilyRow): ProductCardData {
+  const colours = [...new Set((ix.listingsByFamily.get(f.family_slug) ?? []).map((l) => text(l.colour)).filter(Boolean))];
+  return {
+    id: f.family_slug, slug: f.family_slug, name: f.title, brand: text(f.brand), kind: kindOf(f.category, f.is_phone), image: f.cover_url ?? null, releaseYear: null,
+    colors: colours.map((label) => ({ label, hex: colourHex(label) })), fromPrice: 0, newPrice: null, savings: 0, offerCount: 0, soldOut: true,
   };
 }
 
@@ -183,7 +195,12 @@ export function listing(ix: Index, filters: ListingFilters, pageSize: number) {
     const haystack = `${f.title} ${text(f.brand)} ${text(f.category)}`.toLowerCase();
     if (tokens.some((t) => !haystack.includes(t))) continue;
     const rows = (ix.variantsByFamily.get(f.family_slug) ?? []).filter((r) => matches(filters, r));
-    if (rows.length === 0) continue; // sold out (or no match for the chosen filters): not shown in lists
+    if (rows.length === 0) {
+      // No match for the chosen filters: not shown. Truly out of stock (and no filter that needs stock): shown, marked out of stock, last.
+      const filtered = filters.storages.length || filters.conditions.length || filters.ptaOnly || filters.minPrice || filters.maxPrice;
+      if (!filtered && !ix.variantsByFamily.has(f.family_slug)) cards.push(soldOutCard(ix, f));
+      continue;
+    }
     const card = cardFor(ix, f, rows);
     if (filters.minPrice && card.fromPrice < filters.minPrice) continue;
     if (filters.maxPrice && card.fromPrice > filters.maxPrice) continue;
@@ -196,7 +213,7 @@ export function listing(ix: Index, filters: ListingFilters, pageSize: number) {
     savings: (a, b) => b.savings - a.savings || a.fromPrice - b.fromPrice,
     newest: (a, b) => a.name.localeCompare(b.name),
   };
-  cards.sort(sorters[filters.sort]);
+  cards.sort((a, b) => Number(a.soldOut) - Number(b.soldOut) || sorters[filters.sort](a, b));
   const pageCount = Math.ceil(cards.length / pageSize);
   const page = Math.min(Math.max(filters.page, 1), Math.max(pageCount, 1));
   return { items: cards.slice((page - 1) * pageSize, page * pageSize), total: cards.length, page, pageCount };
@@ -233,6 +250,11 @@ export function productPage(ix: Index, slug: string) {
   if (!family) return null;
   const rows = (ix.variantsByFamily.get(slug) ?? []).sort((a, b) => num(a.variant.price) - num(b.variant.price));
   const listings = ix.listingsByFamily.get(slug) ?? [];
+  // A colour/storage with nothing in stock stays on the page as an out-of-stock option (it never disappears just because the last unit sold).
+  const soldOutRows = listings
+    .filter((l) => !rows.some((r) => String(r.listing.product_id) === String(l.product_id)))
+    .map((listing) => ({ variant: { product_id: listing.product_id, condition: null, pta_status: null, device_type: null, price: 0, compare_price: null, quantity: 0, grade: null, battery_health: null, warranty_days: null } as VariantRow, listing }));
+  const optionRows = [...rows, ...soldOutRows];
 
   // One picker per choice the buyer actually has (two or more values). Ids are prefixed so they never collide.
   type Def = { type: PickerType; name: string; prefix: string; labelOf: (r: { variant: VariantRow; listing: ListingRow }) => string };
@@ -250,7 +272,7 @@ export function productPage(ix: Index, slug: string) {
       return label ? [`${d.prefix}:${slugify(label)}`] : [];
     });
   for (const d of defs) {
-    const labels = [...new Map(rows.filter((r) => d.labelOf(r)).map((r) => [slugify(d.labelOf(r)), d.labelOf(r)])).entries()];
+    const labels = [...new Map(optionRows.filter((r) => d.labelOf(r)).map((r) => [slugify(d.labelOf(r)), d.labelOf(r)])).entries()];
     if (labels.length < 2) continue;
     if (d.type === "STORAGE") labels.sort((a, b) => gigabytes(a[1]) - gigabytes(b[1]));
     pickers.push({
@@ -269,6 +291,7 @@ export function productPage(ix: Index, slug: string) {
     shopsByKey.set(key, [...(shopsByKey.get(key) ?? []), { name: text(sRow.shop_name) || "Shop", quantity: num(sRow.quantity) }]);
   }
 
+  const soldOutVariants: VariantSummary[] = soldOutRows.map((r) => ({ id: `sold-out|${String(r.variant.product_id)}`, productId: String(r.variant.product_id), valueIds: idsFor(r), offers: [] }));
   const variants: VariantSummary[] = rows.map((r) => {
     const compare = num(r.variant.compare_price);
     const grade = optionalNumber(r.variant.grade);
@@ -324,7 +347,8 @@ export function productPage(ix: Index, slug: string) {
     imagesByProduct,
     kind: kindOf(category, family.is_phone),
     pickers,
-    variants,
+    variants: [...variants, ...soldOutVariants],
+    soldOut: rows.length === 0,
   };
 }
 

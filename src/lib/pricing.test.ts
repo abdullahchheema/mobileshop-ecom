@@ -80,9 +80,14 @@ describe("pickerStates", () => {
     expect(storage256).toEqual({ valueId: "256", status: "alternative", price: 150 });
   });
 
-  it("marks a value as unavailable when no seller has it at all", () => {
+  it("marks a value as out of stock (still selectable) when it exists but none is in stock", () => {
     const noBlue = variants.map((v) => (v.valueIds.includes("blue") ? { ...v, offers: [] } : v));
     const [, blue] = pickerStates(pickers[3], noBlue, current);
+    expect(blue).toEqual({ valueId: "blue", status: "soldout", price: null });
+  });
+  it("marks a value as unavailable only when no variant has it at all", () => {
+    const none = variants.filter((v) => !v.valueIds.includes("blue"));
+    const [, blue] = pickerStates(pickers[3], none, current);
     expect(blue).toEqual({ valueId: "blue", status: "unavailable", price: null });
   });
 });
@@ -100,9 +105,14 @@ describe("selectValue", () => {
     expect(selectValue(pickers, variants, current, "sto", "256")).toEqual(sel("good", "256", "pta", "black"));
   });
 
-  it("ignores a value nobody sells", () => {
+  it("lets an out-of-stock value be chosen (the page shows it as out of stock)", () => {
     const noBlue = variants.map((v) => (v.valueIds.includes("blue") ? { ...v, offers: [] } : v));
-    expect(selectValue(pickers, noBlue, current, "col", "blue")).toEqual(current);
+    const next = selectValue(pickers, noBlue, current, "col", "blue");
+    expect(next.col).toBe("blue");
+  });
+  it("ignores a value no variant has", () => {
+    const none = variants.filter((v) => !v.valueIds.includes("blue"));
+    expect(selectValue(pickers, none, current, "col", "blue")).toEqual(current);
   });
 });
 
