@@ -47,10 +47,10 @@ node scripts/mock-erp.mjs      # http://localhost:4010 (order key: mock-key)
   the *listings*, and Condition / PTA status / price / stock come from each *variant*.
 - **Cart** (`src/lib/cart-store.ts`): lives in the browser (localStorage) and holds only variant keys and quantities,
   never prices. `/api/cart/lines` prices it from the ERP's current data.
-- **Checkout** (`src/app/api/checkout`): cash on delivery only. The server rebuilds the order from the ERP's data, compares
+- **Checkout** (`src/app/api/checkout`): five payment methods (the shop confirms prepaid ones). The server rebuilds the order from the ERP's data, compares
   the total with what the customer saw, and sends it to the ERP with a retry-safe reference (`TM-…`). The ERP re-checks stock
   and price, so a stale page can never oversell. The ERP key never reaches the browser.
-- **Orders** (`/order/[ref]`, `/orders`): tracking reads the ERP's order status by reference. "My orders" lists orders placed
+- **Orders** (`/order/[ref]`, `/orders`): tracking needs the order number and the phone number it was placed with (checked on the server, see `docs/erp-integration.md`). "My orders" lists orders placed
   on this device. Returns and refunds are handled by the shop (the ERP's online team).
 - **Banners** (`src/lib/banners.ts`) and **delivery fee** (`src/lib/shipping.ts`: Rs 250, free from Rs 30,000) are fixed in code.
 
@@ -59,7 +59,8 @@ node scripts/mock-erp.mjs      # http://localhost:4010 (order key: mock-key)
 Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` **before building** (Next bakes `NEXT_PUBLIC_*` into the
 build), and `ERP_API_URL`, `ERP_API_KEY` on the server (never `NEXT_PUBLIC_`, never committed). Optional
 `SUPABASE_URL` / `SUPABASE_ANON_KEY` are read when the server starts and take precedence, so the ERP can be repointed
-without a rebuild. Set `NEXT_PUBLIC_APP_URL` to the public address.
+without a rebuild. Set `NEXT_PUBLIC_APP_URL` to the public address. A production server refuses to start when a required
+variable is missing (names only are reported). After building, run `npm run check:bundle` to prove no secret is in the browser bundle.
 
 ## Notes for contributors
 

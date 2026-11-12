@@ -23,15 +23,16 @@ const listings = [
   L(201, "iphone-13-pro", "256GB", "Sierra Blue"), L(301, "galaxy-s21", "128GB", "Phantom Gray"),
   L(401, "airpods-2", null, "White", "Accessories", false), L(501, "pixel-6", "128GB", "Green"),
 ];
-const V = (id, condition, pta, price, quantity, extra = {}) => ({ product_id: id, condition, pta_status: pta, device_type: condition ? "Used" : "New", price, compare_price: null, quantity, grade: null, battery_health: null, warranty_days: 365, ...extra });
+const V = (id, condition, pta, price, quantity, extra = {}) => ({ product_id: id, condition, pta_status: pta, device_type: condition ? "Used" : "", price, compare_price: null, quantity, grade: null, battery_health: null, warranty_days: 365, ...extra });
 const variants = [
-  V(101, "Good", "PTA", 39500, 3, { compare_price: 60000 }), V(102, "Very Good", "PTA", 48000, 2, { compare_price: 70000 }), V(102, "Good", "Non-PTA", 44000, 1),
-  V(103, "Excellent", "PTA", 55000, 1), V(201, "Excellent", "PTA", 123000, 2, { compare_price: 190000 }), V(301, "Good", "PTA", 62000, 4),
-  V(401, null, null, 4500, 10, { warranty_days: 90 }), V(501, "Good", "PTA", 52000, 0),
+  V(101, "Good", "PTA", 39500, 3, { compare_price: 60000, grade: "8", battery_health: 86 }), V(102, "Very Good", "PTA", 48000, 2, { compare_price: 70000 }), V(102, "Good", "Non-PTA", 44000, 1),
+  V(103, "Excellent", "PTA", 55000, 1, { grade: "9", battery_health: 94, warranty_days: 0 }), V(201, "Excellent", "PTA", 123000, 2, { compare_price: 190000 }), V(301, "Good", "PTA", 62000, 4),
+  V(401, "", "", 4500, 10, { warranty_days: 0 }), V(501, "Good", "PTA", 52000, 0),
 ];
 const images = [
   { image_id: 1, family_slug: "iphone-11", variant_product_id: null, product_id: null, url: svg("#cfe0f5", "iPhone 11 front"), alt: "front", position: 0 },
   { image_id: 2, family_slug: "iphone-11", variant_product_id: null, product_id: null, url: svg("#bcd2ee", "iPhone 11 back"), alt: "back", position: 1 },
+  { image_id: 3, family_slug: "iphone-11", variant_product_id: 103, product_id: 103, url: svg("#f5f5f5", "iPhone 11 White"), alt: "White iPhone 11", position: 0 },
 ];
 const orders = new Map();
 const sum = (id) => String(id);
@@ -45,7 +46,8 @@ function view(name) {
   if (name === "web_listings") return listings.filter((l) => variants.some((v) => v.product_id === l.product_id && v.quantity > 0));
   if (name === "web_variants") return variants.filter((v) => v.quantity > 0);
   if (name === "web_images") return images;
-  if (["web_variant_stock", "web_stock", "web_phone_units"].includes(name)) return [];
+  if (name === "web_variant_stock") return variants.filter((v) => v.quantity > 0).flatMap((v) => v.quantity > 1 ? [{ product_id: v.product_id, condition: v.condition, pta_status: v.pta_status, device_type: v.device_type, price: v.price, shop_id: 1, shop_name: "Shop A", quantity: v.quantity - 1 }, { product_id: v.product_id, condition: v.condition, pta_status: v.pta_status, device_type: v.device_type, price: v.price, shop_id: 2, shop_name: "Shop B", quantity: 1 }] : [{ product_id: v.product_id, condition: v.condition, pta_status: v.pta_status, device_type: v.device_type, price: v.price, shop_id: 1, shop_name: "Shop A", quantity: v.quantity }]);
+  if (["web_stock", "web_phone_units"].includes(name)) return [];
   return null;
 }
 
@@ -63,7 +65,7 @@ function placeOrder(b) {
   const fee = Number(b.delivery_fee ?? 0); if (!(fee >= 0 && fee <= 100000)) return err(400, "delivery_fee must be 0 to 100000.");
   let subtotal = 0; const picked = [];
   for (const it of b.items) {
-    const v = variants.find((x) => sum(x.product_id) === sum(it.product_id) && (it.condition ?? null) === (x.condition ?? null) && (it.pta_status ?? null) === (x.pta_status ?? null) && (it.device_type ?? null) === (x.device_type ?? null));
+    const v = variants.find((x) => sum(x.product_id) === sum(it.product_id) && (it.condition ?? "") === (x.condition ?? "") && (it.pta_status ?? "") === (x.pta_status ?? "") && (it.device_type ?? "") === (x.device_type ?? ""));
     const qty = Number(it.quantity);
     if (!Number.isInteger(qty) || qty < 1 || qty > 50) return err(400, "Each line needs a quantity of 1 to 50.");
     if (!v || v.quantity < 1) return err(409, `Variant ${it.product_id} is sold out or no longer sold.`);
@@ -72,7 +74,7 @@ function placeOrder(b) {
     subtotal += v.price * qty; picked.push([v, qty]);
   }
   const total = subtotal + fee;
-  if (b.expected_total !== undefined && Number(b.expected_total) !== total) return err(409, "Total differs from what the customer saw.");
+  if (b.expected_total !== undefined && Math.abs(Number(b.expected_total) - total) > 0.01) return err(409, "Total differs from what the customer saw.");
   for (const [v, qty] of picked) v.quantity -= qty; // reserve the phones
   const o = { order: `ON-${String(orders.size + 1).padStart(5, "0")}`, external_ref: b.external_ref, status: "New", payment_status: b.payment_status ?? "Unpaid", courier: null, tracking: null, subtotal, delivery_fee: fee, total, placed_on: new Date().toISOString(), dispatched_on: null, delivered_on: null };
   orders.set(b.external_ref, o);
@@ -100,6 +102,6 @@ http.createServer(async (req, res) => {
   }
   const adv = /^\/__mock\/advance\/([^/]+)$/.exec(url.pathname);
   if (req.method === "POST" && adv) { const o = orders.get(decodeURIComponent(adv[1])); if (!o) return json(res, 404, {}); if (o.status === "New") Object.assign(o, { status: "Dispatched", courier: "TCS", tracking: "TCS-MOCK-1234", dispatched_on: new Date().toISOString() }); else if (o.status === "Dispatched") Object.assign(o, { status: "Delivered", payment_status: "Paid", delivered_on: new Date().toISOString() }); return json(res, 200, o); }
-  if (req.method === "POST" && url.pathname === "/__mock/stock") { const b = await readBody(req); const v = variants.find((x) => sum(x.product_id) === sum(b.product_id) && (b.condition ?? null) === (x.condition ?? null) && (b.pta_status ?? null) === (x.pta_status ?? null)); if (!v) return json(res, 404, {}); v.quantity = b.quantity ?? v.quantity; if (b.price) v.price = b.price; return json(res, 200, v); }
+  if (req.method === "POST" && url.pathname === "/__mock/stock") { const b = await readBody(req); const v = variants.find((x) => sum(x.product_id) === sum(b.product_id) && (b.condition ?? "") === (x.condition ?? "") && (b.pta_status ?? "") === (x.pta_status ?? "")); if (!v) return json(res, 404, {}); v.quantity = b.quantity ?? v.quantity; if (b.price) v.price = b.price; return json(res, 200, v); }
   json(res, 404, { error: "not found" });
 }).listen(PORT, () => console.log(`mock ERP on http://localhost:${PORT} (order key: ${KEY})`));
