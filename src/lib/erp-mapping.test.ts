@@ -54,7 +54,8 @@ describe("helpers", () => {
     expect(warrantyMonths(null)).toBe(0);
   });
   it("builds a stable variant key", () => {
-    expect(variantKey({ product_id: 2, condition: "Good", pta_status: "Non-PTA", device_type: "Used" })).toBe("2|Good|Non-PTA|Used");
+    expect(variantKey({ product_id: 2, condition: "Good", pta_status: "Non-PTA", device_type: "Used", price: "45000" })).toBe("2|Good|Non-PTA|Used|45000.00");
+    expect(variantKey({ product_id: 2, condition: "Good", pta_status: "Non-PTA", device_type: "Used", price: 46000 })).not.toBe(variantKey({ product_id: 2, condition: "Good", pta_status: "Non-PTA", device_type: "Used", price: 45000 }));
   });
 });
 
@@ -119,13 +120,13 @@ describe("product page", () => {
   it("maps each ERP variant to one buyable offer with its price, stock and warranty", () => {
     const first = page.variants[0];
     expect(first.offers).toHaveLength(1);
-    expect(first.offers[0]).toMatchObject({ id: "1|Good|PTA|Used", price: 39500, stock: 3, warrantyMonths: 12 });
-    expect(page.variants.find((x) => x.id === "3|Excellent|PTA|Used")?.offers[0].warrantyMonths).toBe(0);
+    expect(first.offers[0]).toMatchObject({ id: "1|Good|PTA|Used|39500.00", price: 39500, stock: 3, warrantyMonths: 12 });
+    expect(page.variants.find((x) => x.id === "3|Excellent|PTA|Used|55000.00")?.offers[0].warrantyMonths).toBe(0);
     expect(page.variants.map((x) => x.offers[0].price)).toEqual([39500, 44000, 48000, 55000]);
   });
 
   it("gives each variant the ids of its picker values", () => {
-    expect(page.variants.find((x) => x.id === "2|Good|Non-PTA|Used")?.valueIds.sort()).toEqual(
+    expect(page.variants.find((x) => x.id === "2|Good|Non-PTA|Used|44000.00")?.valueIds.sort()).toEqual(
       ["color:black", "condition:good", "pta:non-pta", "storage:128gb", "type:used"].sort(),
     );
   });

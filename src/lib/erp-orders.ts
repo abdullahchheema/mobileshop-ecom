@@ -63,7 +63,8 @@ export function classifyPlaceResponse(status: number, body: ErpBody | null, fall
     return { ok: true, ref: body?.external_ref ?? fallbackRef, total: Number(body?.total ?? 0), status: body?.status ?? "New", created: status === 201 || body?.created !== false };
   }
   if (status === 409) {
-    const code = /price/i.test(message) ? "PRICE_CHANGED" : /stock|sold|available|quantity/i.test(message) ? "OUT_OF_STOCK" : "CONFLICT";
+    // Stock words first: "no longer available (it may have been sold, or its price changed)" is a sold-out message.
+    const code = /stock|sold|available|quantity|exist/i.test(message) ? "OUT_OF_STOCK" : /price/i.test(message) ? "PRICE_CHANGED" : "CONFLICT";
     return { ok: false, code, message: message || "Some items changed. Please review your cart.", status };
   }
   if (status === 400) return { ok: false, code: "INVALID", message: message || "Please check your details and try again.", status };

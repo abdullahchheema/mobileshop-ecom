@@ -8,6 +8,8 @@ export type FamilyRow = {
   brand: string | null;
   category: string | null;
   description: string | null;
+  /** Grouped for display: { "Display": { "Screen size": "6.9 inch" } }. May be empty. */
+  specs?: Record<string, Record<string, string>> | null;
   is_phone: boolean;
   price_from: number | string | null;
   price_to: number | string | null;
@@ -30,6 +32,8 @@ export type ListingRow = {
   colour: string | null;
   category: string | null;
   description: string | null;
+  /** Grouped for display: { "Display": { "Screen size": "6.9 inch" } }. May be empty. */
+  specs?: Record<string, Record<string, string>> | null;
   is_phone: boolean;
   discount_percent: number | string | null;
   price_from: number | string | null;

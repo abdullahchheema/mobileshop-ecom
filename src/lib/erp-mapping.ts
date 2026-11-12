@@ -15,8 +15,9 @@ export const num = (v: number | string | null | undefined) => {
 const text = (v: string | null | undefined) => (v ?? "").trim();
 
 /** Identity of a sellable variant. Also the cart line id and the cart's key to the ERP. */
-export const variantKey = (v: Pick<VariantRow, "product_id" | "condition" | "pta_status" | "device_type">) =>
-  [v.product_id, text(v.condition), text(v.pta_status), text(v.device_type)].join("|");
+// The price is part of the key: the ERP lists one row per price, so two units of the same phone with different prices are different variants.
+export const variantKey = (v: Pick<VariantRow, "product_id" | "condition" | "pta_status" | "device_type" | "price">) =>
+  [v.product_id, text(v.condition), text(v.pta_status), text(v.device_type), num(v.price).toFixed(2)].join("|");
 
 /** "PTA", "PTA Approved" count as PTA approved; "Non-PTA", "Not PTA" do not. */
 export const isPtaApproved = (pta: string | null | undefined) => /^pta\b/i.test(text(pta)) && !/non|not/i.test(text(pta));
@@ -81,6 +82,18 @@ export type Facets = {
   years: number[];
   hasPta: boolean;
 };
+
+/** The ERP's specs are grouped for display: { "Display": { "Screen size": "6.9 inch" } }. Anything else is ignored. */
+export function normaliseSpecs(raw: unknown): Record<string, Record<string, string>> {
+  const out: Record<string, Record<string, string>> = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const [group, fields] of Object.entries(raw as Record<string, unknown>)) {
+    if (!fields || typeof fields !== "object") continue;
+    const rows = Object.entries(fields as Record<string, unknown>).filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== "");
+    if (rows.length) out[group] = Object.fromEntries(rows.map(([k, v]) => [k, String(v)]));
+  }
+  return out;
+}
 
 // ─── Indexes ────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -252,7 +265,7 @@ export function productPage(ix: Index, slug: string) {
   const shopsByKey = new Map<string, { name: string; quantity: number }[]>();
   for (const sRow of ix.cat.stock ?? []) {
     if (num(sRow.quantity) <= 0) continue;
-    const key = variantKey({ product_id: sRow.product_id, condition: sRow.condition, pta_status: sRow.pta_status, device_type: sRow.device_type });
+    const key = variantKey({ product_id: sRow.product_id, condition: sRow.condition, pta_status: sRow.pta_status, device_type: sRow.device_type, price: sRow.price });
     shopsByKey.set(key, [...(shopsByKey.get(key) ?? []), { name: text(sRow.shop_name) || "Shop", quantity: num(sRow.quantity) }]);
   }
 
@@ -306,7 +319,7 @@ export function productPage(ix: Index, slug: string) {
     releaseYear: null as number | null,
     brand: { name: text(family.brand), slug: slugify(text(family.brand)) },
     category: { name: category, slug: slugify(category), icon: kindOf(category, family.is_phone), parent: null as null | { name: string; slug: string; icon: string } },
-    specs: {} as Record<string, string>,
+    specs: normaliseSpecs(family.specs ?? listings.find((l) => l.specs)?.specs),
     images,
     imagesByProduct,
     kind: kindOf(category, family.is_phone),

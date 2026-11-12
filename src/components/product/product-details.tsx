@@ -65,14 +65,21 @@ export function ProductDetails({ product, lang }: { product: ProductPageData; la
         {specs.length > 0 && (
           <section>
             <SectionTitle title={t.product.specs} />
-            <dl className="divide-y rounded-2xl border">
-              {specs.map(([key, value]) => (
-                <div key={key} className="grid grid-cols-2 gap-4 px-4 py-3 text-sm">
-                  <dt className="text-muted-foreground">{key}</dt>
-                  <dd className="font-medium">{value}</dd>
+            <div className="space-y-4">
+              {specs.map(([group, fields]) => (
+                <div key={group}>
+                  <h3 className="mb-2 text-sm font-semibold">{group}</h3>
+                  <dl className="divide-y rounded-2xl border">
+                    {Object.entries(fields).map(([key, value]) => (
+                      <div key={key} className="grid grid-cols-2 gap-4 px-4 py-3 text-sm">
+                        <dt className="text-muted-foreground">{key}</dt>
+                        <dd className="font-medium">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
                 </div>
               ))}
-            </dl>
+            </div>
           </section>
         )}
 
