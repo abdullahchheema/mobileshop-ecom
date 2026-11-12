@@ -84,7 +84,8 @@ export function clearCart() {
 
 // ─── Recent orders (so "My orders" works without accounts) ──────────────────────────────────────────────────
 const ORDERS_KEY = "trendz-orders-v1";
-export type RecentOrder = { ref: string; total: number; placedAt: string };
+/** `phone` is kept on this device only, so its owner can reopen the order without retyping it. */
+export type RecentOrder = { ref: string; total: number; placedAt: string; phone?: string };
 
 export function rememberOrder(order: RecentOrder) {
   try {

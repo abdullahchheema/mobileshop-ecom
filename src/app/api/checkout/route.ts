@@ -3,6 +3,7 @@ import { getVariantsByKey } from "@/lib/catalog";
 import { buildCartView, clampQuantity, MAX_LINES } from "@/lib/cart";
 import { ErpOrderConfigError, placeErpOrder } from "@/lib/erp-orders";
 import { apiError } from "@/lib/http";
+import { makeOrderRef } from "@/lib/order-ref";
 import { normalizePkMobile } from "@/lib/phone";
 import { PAYMENT_METHODS } from "@/lib/payment";
 import { PROVINCES } from "@/lib/pakistan";
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
 
   try {
     const result = await placeErpOrder({
-      ref: `TM-${input.orderId.toUpperCase()}`,
+      ref: makeOrderRef(input.orderId, input.phone),
       customer: { name: input.name, phone: input.phone, email: input.email, line1: input.line1, line2: input.line2, city: input.city, province: input.province },
       notes: input.notes,
       paymentMethod: input.paymentMethod,

@@ -86,7 +86,7 @@ export function CheckoutView() {
       const body = await response.json().catch(() => null);
       if (response.status === 201) {
         const order = body.order as { ref: string; total: number };
-        rememberOrder({ ref: order.ref, total: order.total || total, placedAt: new Date().toISOString() });
+        rememberOrder({ ref: order.ref, total: order.total || total, placedAt: new Date().toISOString(), phone: value("phone") });
         forgetCheckoutId();
         orderPlaced.current = true;
         clearCart();
