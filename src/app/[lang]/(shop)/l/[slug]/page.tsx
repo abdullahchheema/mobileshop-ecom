@@ -52,9 +52,6 @@ async function CategoryListing({ params, searchParams }: PageProps<"/[lang]/l/[s
       description={lang === "en" && category.description ? category.description : t.listing.description(name, site.warrantyMonths)}
       breadcrumbs={[
         { label: t.common.home, href: "/" },
-        ...(category.parent
-          ? [{ label: categoryLabel(t, category.parent.slug, category.parent.name), href: `/l/${category.parent.slug}` }]
-          : []),
         { label: name },
       ]}
       subcategories={category.children}

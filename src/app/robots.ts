@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { site } from "@/lib/site";
 
 // Private and per-visitor pages, in both languages. Search results are thin, so they stay out too.
-const PRIVATE = ["/account", "/cart", "/checkout", "/search", "/sign-in", "/sign-up"];
+const PRIVATE = ["/cart", "/checkout", "/orders", "/order", "/search"];
 
 export default function robots(): MetadataRoute.Robots {
   return {

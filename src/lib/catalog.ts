@@ -1,339 +1,77 @@
 import "server-only";
-import { cacheLife, cacheTag } from "next/cache";
-import type { Prisma } from "@/generated/prisma/client";
-import { db } from "@/lib/db";
+import { cacheLife } from "next/cache";
+import { BANNERS, type Banner } from "@/lib/banners";
+import * as map from "@/lib/erp-mapping";
+import type { Catalogue } from "@/lib/erp-types";
 import { type ListingFilters, PAGE_SIZE } from "@/lib/listing-params";
-import type { Picker, PickerType, VariantSummary } from "@/lib/pricing";
-import { savingsPercent } from "@/lib/pricing";
-import { slugify } from "@/lib/slug";
+import { ErpConfigError, getSupabase } from "@/lib/supabase";
 
-// Cache tags: "categories", "banners", "offers" (any price/stock change), `product:<slug>`.
+// The storefront owns no data: every product, price and stock number comes from the ERP's public views (schema `api`).
+// The whole catalogue is read once and cached for about a minute (the guide asks for 30 s or so; the built-in "minutes"
+// profile is the shortest that still lets Next prerender around it). A stale page can never
+// oversell, because the ERP's order API re-checks stock and price when the order is placed.
 
-/** An offer a buyer can actually purchase right now. */
-const buyableOffer = {
-  status: "ACTIVE",
-  stock: { gt: 0 },
-  seller: { status: "APPROVED" },
-} satisfies Prisma.OfferWhereInput;
+export type { Facets, NavCategory, ProductCardData, ProductPageData } from "@/lib/erp-mapping";
 
-/** Top-level categories (with their children) for the header nav, menus and footer. */
-export async function getNavCategories() {
-  "use cache";
-  cacheLife("hours");
-  cacheTag("categories");
+const PAGE = 1000; // PostgREST returns at most this many rows per request
 
-  return db.category.findMany({
-    where: { parentId: null, isFeatured: true },
-    orderBy: { sortOrder: "asc" },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      icon: true,
-      children: { orderBy: { sortOrder: "asc" }, select: { id: true, name: true, slug: true } },
-    },
-  });
+async function readAll<T>(table: string): Promise<T[]> {
+  const sb = getSupabase();
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await sb.from(table).select("*").range(from, from + PAGE - 1);
+    if (error) throw new Error(`${table}: ${error.message}`);
+    rows.push(...((data ?? []) as T[]));
+    if (!data || data.length < PAGE) return rows;
+  }
 }
 
-export type NavCategory = Awaited<ReturnType<typeof getNavCategories>>[number];
-
-export async function getBanners(placement: "HOME_HERO" | "HOME_PROMO") {
+async function getCatalogue(): Promise<Catalogue> {
   "use cache";
-  cacheLife("hours");
-  cacheTag("banners");
+  cacheLife("minutes"); // refreshed about every minute; shorter profiles make Next treat the whole page as dynamic
 
-  return db.banner.findMany({
-    where: { placement, isActive: true },
-    orderBy: { sortOrder: "asc" },
-  });
+  try {
+    const [families, listings, variants, images] = await Promise.all([
+      readAll<Catalogue["families"][number]>("web_families"),
+      readAll<Catalogue["listings"][number]>("web_listings"),
+      readAll<Catalogue["variants"][number]>("web_variants"),
+      readAll<Catalogue["images"][number]>("web_images"),
+    ]);
+    return { families, listings, variants, images };
+  } catch (e) {
+    if (e instanceof ErpConfigError) throw e;
+    // The ERP is unreachable: show an empty store for a moment rather than an error page.
+    console.error("[catalog] could not read the ERP catalogue", e);
+    return { families: [], listings: [], variants: [], images: [] };
+  }
+}
+
+const index = async () => map.indexCatalogue(await getCatalogue());
+
+/** Categories (taken from the ERP's own category names) for the header nav, menus and footer. */
+export async function getNavCategories() {
+  return map.navCategories(await index());
+}
+
+export async function getBanners(placement: Banner["placement"]) {
+  return BANNERS.filter((b) => b.placement === placement).sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 export async function getCategory(slug: string) {
-  "use cache";
-  cacheLife("hours");
-  cacheTag("categories");
-
-  return db.category.findUnique({
-    where: { slug },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      description: true,
-      icon: true,
-      parent: { select: { name: true, slug: true, icon: true } },
-      children: { orderBy: { sortOrder: "asc" }, select: { name: true, slug: true } },
-    },
-  });
+  return map.categoryInfo(await index(), slug);
 }
 
-/** A category plus all of its descendants (the tree is two levels deep). */
-async function categoryIds(slug: string) {
-  const category = await db.category.findUnique({
-    where: { slug },
-    select: { id: true, children: { select: { id: true } } },
-  });
-  return category ? [category.id, ...category.children.map((c) => c.id)] : [];
-}
-
-function productWhere(filters: Pick<ListingFilters, "brands" | "years" | "q">, ids: string[] | null) {
-  const tokens = filters.q?.split(/\s+/).filter(Boolean) ?? [];
-  return {
-    isActive: true,
-    ...(ids && { categoryId: { in: ids } }),
-    ...(filters.brands.length && { brand: { slug: { in: filters.brands } } }),
-    ...(filters.years.length && { releaseYear: { in: filters.years } }),
-    // Every word must match the product name, brand or category ("galaxy 256" style queries).
-    AND: tokens.map((t) => ({
-      OR: [
-        { name: { contains: t, mode: "insensitive" } },
-        { brand: { name: { contains: t, mode: "insensitive" } } },
-        { category: { name: { contains: t, mode: "insensitive" } } },
-      ],
-    })),
-  } satisfies Prisma.ProductWhereInput;
-}
-
-function variantWhere(filters: Pick<ListingFilters, "storages" | "conditions" | "ptaOnly">) {
-  const clauses: Prisma.VariantWhereInput[] = [];
-  const has = (type: PickerType, values: string[]) =>
-    clauses.push({ optionValues: { some: { value: { in: values }, option: { type } } } });
-  if (filters.conditions.length) has("CONDITION", filters.conditions);
-  if (filters.storages.length) has("STORAGE", filters.storages);
-  if (filters.ptaOnly) has("SIM", ["pta-approved"]);
-  return clauses.length ? { AND: clauses } : undefined;
-}
-
-const cardSelect = {
-  id: true,
-  slug: true,
-  name: true,
-  images: true,
-  newPrice: true,
-  releaseYear: true,
-  brand: { select: { name: true } },
-  category: { select: { icon: true, parent: { select: { icon: true } } } },
-  options: {
-    where: { type: "COLOR" },
-    select: { values: { orderBy: { position: "asc" }, select: { label: true, colorHex: true } } },
-  },
-} satisfies Prisma.ProductSelect;
-
-type CardRow = Prisma.ProductGetPayload<{ select: typeof cardSelect }>;
-
-export type ProductCardData = {
-  id: string;
-  slug: string;
-  name: string;
-  brand: string;
-  kind: string;
-  /** Main photo, if an admin uploaded one. */
-  image: string | null;
-  releaseYear: number | null;
-  colors: { label: string; hex: string }[];
-  fromPrice: number;
-  newPrice: number | null;
-  savings: number;
-  offerCount: number;
-};
-
-function toCard(p: CardRow, fromPrice: number, offerCount: number): ProductCardData {
-  return {
-    id: p.id,
-    slug: p.slug,
-    name: p.name,
-    brand: p.brand.name,
-    kind: p.category.parent?.icon ?? p.category.icon ?? "smartphone",
-    image: p.images[0] ?? null,
-    releaseYear: p.releaseYear,
-    colors: p.options.flatMap((o) => o.values.map((v) => ({ label: v.label, hex: v.colorHex ?? "#cccccc" }))),
-    fromPrice,
-    newPrice: p.newPrice,
-    savings: savingsPercent(fromPrice, p.newPrice),
-    offerCount,
-  };
-}
-
-/**
- * Products for a category, search or deals page. Each product's "from" price is
- * its cheapest buyable offer that also matches the variant filters (condition,
- * storage, PTA), so filtering by "Excellent" shows Excellent prices.
- */
 export async function getListing(filters: ListingFilters, pageSize = PAGE_SIZE) {
-  "use cache";
-  cacheLife("minutes");
-  cacheTag("offers");
-
-  const ids = filters.category ? await categoryIds(filters.category) : null;
-  if (ids?.length === 0) return { items: [], total: 0, page: 1, pageCount: 0 };
-
-  const groups = await db.offer.groupBy({
-    by: ["productId"],
-    where: { ...buyableOffer, product: productWhere(filters, ids), variant: variantWhere(filters) },
-    _min: { price: true },
-    _count: { _all: true },
-  });
-
-  const inRange = groups.filter((g) => {
-    const price = g._min.price ?? 0;
-    return (!filters.minPrice || price >= filters.minPrice) && (!filters.maxPrice || price <= filters.maxPrice);
-  });
-
-  const products = await db.product.findMany({
-    where: { id: { in: inRange.map((g) => g.productId) } },
-    select: cardSelect,
-  });
-  const byId = new Map(products.map((p) => [p.id, p]));
-  const cards = inRange.flatMap((g) => {
-    const p = byId.get(g.productId);
-    return p ? [toCard(p, g._min.price ?? 0, g._count._all)] : [];
-  });
-
-  const sorters: Record<ListingFilters["sort"], (a: ProductCardData, b: ProductCardData) => number> = {
-    popular: (a, b) => b.offerCount - a.offerCount || a.fromPrice - b.fromPrice,
-    "price-asc": (a, b) => a.fromPrice - b.fromPrice,
-    "price-desc": (a, b) => b.fromPrice - a.fromPrice,
-    savings: (a, b) => b.savings - a.savings || a.fromPrice - b.fromPrice,
-    newest: (a, b) => (b.releaseYear ?? 0) - (a.releaseYear ?? 0) || b.fromPrice - a.fromPrice,
-  };
-  cards.sort(sorters[filters.sort]);
-
-  const pageCount = Math.ceil(cards.length / pageSize);
-  const page = Math.min(Math.max(filters.page, 1), Math.max(pageCount, 1));
-  return {
-    items: cards.slice((page - 1) * pageSize, page * pageSize),
-    total: cards.length,
-    page,
-    pageCount,
-  };
+  return map.listing(await index(), filters, pageSize);
 }
 
-export type Facets = {
-  brands: { label: string; value: string }[];
-  storages: { label: string; value: string }[];
-  conditions: { label: string; value: string }[];
-  years: number[];
-  hasPta: boolean;
-};
-
-/** Filter choices that actually exist in a category (or the whole catalog). */
-export async function getFacets(categorySlug?: string): Promise<Facets> {
-  "use cache";
-  cacheLife("hours");
-  cacheTag("categories", "offers");
-
-  const ids = categorySlug ? await categoryIds(categorySlug) : null;
-  const products = await db.product.findMany({
-    where: { isActive: true, ...(ids && { categoryId: { in: ids } }) },
-    select: {
-      releaseYear: true,
-      brand: { select: { name: true, slug: true } },
-      options: {
-        where: { type: { in: ["CONDITION", "STORAGE", "SIM"] } },
-        select: { type: true, values: { select: { label: true, value: true, position: true } } },
-      },
-    },
-  });
-
-  const uniq = <T,>(items: T[], key: (t: T) => string) => [...new Map(items.map((i) => [key(i), i])).values()];
-  const values = (type: PickerType) =>
-    products.flatMap((p) => p.options.filter((o) => o.type === type).flatMap((o) => o.values));
-  const gigabytes = (label: string) => Number.parseFloat(label) * (label.includes("TB") ? 1024 : 1);
-
-  return {
-    brands: uniq(products.map((p) => ({ label: p.brand.name, value: p.brand.slug })), (b) => b.value).sort((a, b) =>
-      a.label.localeCompare(b.label),
-    ),
-    storages: uniq(values("STORAGE"), (v) => v.value)
-      .sort((a, b) => gigabytes(a.label) - gigabytes(b.label))
-      .map(({ label, value }) => ({ label, value })),
-    conditions: uniq(values("CONDITION"), (v) => v.value)
-      .sort((a, b) => a.position - b.position)
-      .map(({ label, value }) => ({ label, value })),
-    years: [...new Set(products.map((p) => p.releaseYear).filter((y): y is number => y !== null))].sort((a, b) => b - a),
-    hasPta: values("SIM").length > 0,
-  };
+export async function getFacets(categorySlug?: string) {
+  return map.facets(await index(), categorySlug);
 }
 
-/** Everything the product page needs: catalog data plus every variant's buyable offers. */
 export async function getProductPage(slug: string) {
-  "use cache";
-  cacheLife("minutes");
-  cacheTag("offers", `product:${slug}`);
-
-  const product = await db.product.findUnique({
-    where: { slug, isActive: true },
-    select: {
-      id: true,
-      slug: true,
-      name: true,
-      description: true,
-      specs: true,
-      images: true,
-      newPrice: true,
-      releaseYear: true,
-      brand: { select: { name: true, slug: true } },
-      category: {
-        select: { name: true, slug: true, icon: true, parent: { select: { name: true, slug: true, icon: true } } },
-      },
-      options: {
-        orderBy: { position: "asc" },
-        select: {
-          id: true,
-          type: true,
-          name: true,
-          values: { orderBy: { position: "asc" }, select: { id: true, label: true, value: true, colorHex: true } },
-        },
-      },
-      variants: {
-        select: {
-          id: true,
-          optionValues: { select: { id: true } },
-          offers: {
-            where: buyableOffer,
-            orderBy: { price: "asc" },
-            select: {
-              id: true,
-              price: true,
-              stock: true,
-              warrantyMonths: true,
-              seller: { select: { shopName: true, slug: true, city: true } },
-            },
-          },
-        },
-      },
-    },
-  });
-  if (!product) return null;
-
-  const pickers: Picker[] = product.options.map((o) => ({ ...o, key: slugify(o.name) }));
-  const variants: VariantSummary[] = product.variants.map((v) => ({
-    id: v.id,
-    valueIds: v.optionValues.map((ov) => ov.id),
-    offers: v.offers.map(({ seller, ...offer }) => ({
-      ...offer,
-      seller: { name: seller.shopName, slug: seller.slug, city: seller.city },
-    })),
-  }));
-
-  return {
-    id: product.id,
-    slug: product.slug,
-    name: product.name,
-    description: product.description,
-    newPrice: product.newPrice,
-    releaseYear: product.releaseYear,
-    brand: product.brand,
-    category: product.category,
-    specs: (product.specs ?? {}) as Record<string, string>,
-    images: product.images,
-    kind: product.category.parent?.icon ?? product.category.icon ?? "smartphone",
-    pickers,
-    variants,
-  };
+  return map.productPage(await index(), slug);
 }
-
-export type ProductPageData = NonNullable<Awaited<ReturnType<typeof getProductPage>>>;
 
 /** Small product lists for carousels (home page, "similar products"). */
 export async function getProductRail(options: {
@@ -342,21 +80,9 @@ export async function getProductRail(options: {
   limit: number;
   excludeSlug?: string;
 }) {
-  "use cache";
-  cacheLife("minutes");
-  cacheTag("offers");
-
-  const { items } = await getListing(
-    {
-      category: options.category,
-      brands: [],
-      storages: [],
-      conditions: [],
-      years: [],
-      ptaOnly: false,
-      sort: options.sort,
-      page: 1,
-    },
+  const { items } = map.listing(
+    await index(),
+    { category: options.category, brands: [], storages: [], conditions: [], years: [], ptaOnly: false, sort: options.sort, page: 1 },
     options.limit + 1,
   );
   return items.filter((p) => p.slug !== options.excludeSlug).slice(0, options.limit);
@@ -364,11 +90,8 @@ export async function getProductRail(options: {
 
 /** Top matches for the search box dropdown. */
 export async function getSearchSuggestions(q: string) {
-  "use cache";
-  cacheLife("minutes");
-  cacheTag("offers");
-
-  const { items } = await getListing(
+  const { items } = map.listing(
+    await index(),
     { q, brands: [], storages: [], conditions: [], years: [], ptaOnly: false, sort: "popular", page: 1 },
     6,
   );
@@ -376,13 +99,40 @@ export async function getSearchSuggestions(q: string) {
 }
 
 export async function getBrands() {
-  "use cache";
-  cacheLife("hours");
-  cacheTag("categories");
+  return map.brandList(await index());
+}
 
-  return db.brand.findMany({
-    where: { products: { some: { isActive: true } } },
-    orderBy: { name: "asc" },
-    select: { name: true, slug: true },
-  });
+/**
+ * Current price and stock for cart lines, straight from the ERP's variants (the cart never trusts what the browser
+ * remembers). Keyed by `variantKey`. A variant missing from the result is sold out or no longer sold.
+ */
+export async function getVariantsByKey(keys: string[]) {
+  const wanted = new Set(keys);
+  const { cat } = await index();
+  const out = new Map<string, { price: number; quantity: number; warrantyMonths: number; productId: string; condition: string | null; pta: string | null; type: string | null; name: string; slug: string; image: string | null; label: string; kind: string }>();
+  const listingById = new Map(cat.listings.map((l) => [String(l.product_id), l]));
+  const familyBySlug = new Map(cat.families.map((f) => [f.family_slug, f]));
+  for (const v of cat.variants) {
+    const key = map.variantKey(v);
+    if (!wanted.has(key)) continue;
+    const listing = listingById.get(String(v.product_id));
+    const family = listing && familyBySlug.get(listing.family_slug);
+    if (!listing || !family) continue;
+    const label = [listing.storage, listing.colour, v.condition, v.pta_status].filter((x) => x && String(x).trim()).join(" · ");
+    out.set(key, {
+      price: map.num(v.price),
+      quantity: map.num(v.quantity),
+      warrantyMonths: map.warrantyMonths(v.warranty_days),
+      productId: String(v.product_id),
+      condition: v.condition,
+      pta: v.pta_status,
+      type: v.device_type,
+      name: family.title,
+      slug: family.family_slug,
+      image: listing.cover_url ?? family.cover_url ?? null,
+      label,
+      kind: map.kindOf(family.category, family.is_phone),
+    });
+  }
+  return out;
 }

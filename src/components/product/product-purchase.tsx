@@ -1,17 +1,15 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   BanknoteIcon,
   ShieldCheckIcon,
   ShoppingCartIcon,
-  StoreIcon,
   TruckIcon,
   Undo2Icon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { addToCartAction } from "@/app/actions/cart";
 import { useI18n } from "@/components/i18n/lang-provider";
 import { ProductGallery } from "@/components/product/product-gallery";
 import { Button } from "@/components/ui/button";
@@ -27,6 +25,7 @@ import {
   selectValue,
   type VariantSummary,
 } from "@/lib/pricing";
+import { addToCart as addToCartStore } from "@/lib/cart-store";
 import { formatPkr, site } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -46,12 +45,9 @@ export function ProductPurchase({ name, brand, releaseYear, kind, images, newPri
   const router = useRouter();
   const { t, href } = useI18n();
   const [selection, setSelection] = useState(initialSelection);
-  const [chosenOfferId, setChosenOfferId] = useState<string | null>(null);
-  const [adding, startAdding] = useTransition();
 
   const variant = useMemo(() => findVariant(variants, selection), [variants, selection]);
-  const offers = variant?.offers ?? [];
-  const offer = offers.find((o) => o.id === chosenOfferId) ?? offers[0] ?? null;
+  const offer = variant?.offers[0] ?? null;
 
   const colorPicker = pickers.find((p) => p.type === "COLOR");
   const colorHex = colorPicker?.values.find((v) => v.id === selection[colorPicker.id])?.colorHex ?? undefined;
@@ -65,23 +61,17 @@ export function ProductPurchase({ name, brand, releaseYear, kind, images, newPri
   function choose(pickerId: string, valueId: string) {
     const next = selectValue(pickers, variants, selection, pickerId, valueId);
     setSelection(next);
-    setChosenOfferId(null);
     // Keep the URL shareable without a server round trip.
     window.history.replaceState(null, "", `?${selectionToParams(pickers, next)}`);
   }
 
   function addToCart() {
     if (!offer) return;
-    startAdding(async () => {
-      const result = await addToCartAction(offer.id);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success(result.capped ? t.product.maxInCart : t.product.added, {
-        description: `${name} · ${summary.join(" · ")}`,
-        action: { label: t.product.viewCart, onClick: () => router.push(href("/cart")) },
-      });
+    // The cart lives in this browser; the ERP re-checks price and stock when the order is placed.
+    const capped = addToCartStore(offer.id, 1, offer.stock);
+    toast.success(capped ? t.product.maxInCart : t.product.added, {
+      description: `${name} · ${summary.join(" · ")}`,
+      action: { label: t.product.viewCart, onClick: () => router.push(href("/cart")) },
     });
   }
 
@@ -103,7 +93,7 @@ export function ProductPurchase({ name, brand, releaseYear, kind, images, newPri
 
         <PriceBlock t={t} offer={offer} newPrice={newPrice} />
 
-        <Button size="lg" className="hidden h-12 w-full text-base lg:flex" disabled={!offer || adding} onClick={addToCart}>
+        <Button size="lg" className="hidden h-12 w-full text-base lg:flex" disabled={!offer} onClick={addToCart}>
           <ShoppingCartIcon data-icon="inline-start" />
           {offer ? t.product.addToCart : t.product.unavailableButton}
         </Button>
@@ -122,10 +112,6 @@ export function ProductPurchase({ name, brand, releaseYear, kind, images, newPri
             />
           ))}
         </div>
-
-        {offers.length > 1 && (
-          <OtherOffers t={t} offers={offers} selectedId={offer?.id} onSelect={setChosenOfferId} />
-        )}
       </div>
 
       {/* Mobile: price and button stay reachable while scrolling the pickers. */}
@@ -137,7 +123,7 @@ export function ProductPurchase({ name, brand, releaseYear, kind, images, newPri
           <p className="truncate text-xs text-muted-foreground">{summary.join(" · ")}</p>
           <p className="text-lg font-semibold">{offer ? formatPkr(offer.price) : t.product.unavailableButton}</p>
         </div>
-        <Button size="lg" className="h-11 px-6" disabled={!offer || adding} onClick={addToCart}>
+        <Button size="lg" className="h-11 px-6" disabled={!offer} onClick={addToCart}>
           {t.product.addToCart}
         </Button>
       </div>
@@ -178,7 +164,6 @@ function Perks({ t, offer }: { t: Dict; offer: OfferSummary }) {
     { icon: BanknoteIcon, text: t.product.perks.payment },
     { icon: ShieldCheckIcon, text: t.common.monthWarranty(offer.warrantyMonths) },
     { icon: Undo2Icon, text: t.common.dayReturns(site.returnDays) },
-    { icon: StoreIcon, text: t.product.perks.soldBy(offer.seller.name, offer.seller.city) },
   ];
   return (
     <ul className="space-y-2.5 rounded-2xl border p-4 text-sm">
@@ -259,50 +244,6 @@ function PickerGroup({
         })}
       </div>
       {conditionNote && <p className="mt-2 text-sm text-muted-foreground">{conditionNote}</p>}
-    </fieldset>
-  );
-}
-
-function OtherOffers({
-  t,
-  offers,
-  selectedId,
-  onSelect,
-}: {
-  t: Dict;
-  offers: OfferSummary[];
-  selectedId?: string;
-  onSelect: (id: string) => void;
-}) {
-  return (
-    <fieldset className="border-t pt-6">
-      <legend className="mb-2.5 font-semibold">{t.product.otherSellers(offers.length)}</legend>
-      <div className="space-y-2">
-        {offers.map((o) => (
-          <label
-            key={o.id}
-            className={cn(
-              "flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition",
-              o.id === selectedId ? "border-primary bg-accent" : "hover:border-foreground/30",
-            )}
-          >
-            <input
-              type="radio"
-              name="offer"
-              className="accent-[var(--primary)]"
-              checked={o.id === selectedId}
-              onChange={() => onSelect(o.id)}
-            />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold">{o.seller.name}</span>
-              <span className="block text-xs text-muted-foreground">
-                {o.seller.city} · {t.common.monthWarranty(o.warrantyMonths)}
-              </span>
-            </span>
-            <span className="font-bold">{formatPkr(o.price)}</span>
-          </label>
-        ))}
-      </div>
     </fieldset>
   );
 }

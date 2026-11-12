@@ -12,7 +12,7 @@ const columns = (t: Dict) => [
     title: t.footer.help,
     links: [
       { label: t.footer.links.helpCenter, href: "/help" },
-      { label: t.footer.links.track, href: "/account/orders" },
+      { label: t.footer.links.track, href: "/orders" },
       { label: t.footer.links.shipping, href: "/help/shipping" },
       { label: t.footer.links.returns, href: "/help/returns" },
       { label: t.footer.links.warranty, href: "/help/warranty" },
@@ -33,7 +33,6 @@ const columns = (t: Dict) => [
       { label: t.footer.links.journal, href: "/journal" },
       { label: t.footer.links.terms, href: "/legal/terms" },
       { label: t.footer.links.privacy, href: "/legal/privacy" },
-      { label: t.footer.links.photoCredits, href: "/photo-credits" },
     ],
   },
 ];
@@ -41,7 +40,7 @@ const columns = (t: Dict) => [
 export async function Footer({ lang }: { lang: Lang }) {
   const categories = await getNavCategories();
   const t = getDict(lang);
-  const payments = [t.checkout.cod, "JazzCash", "Easypaisa", "Visa", "Mastercard"];
+  const payments = [t.checkout.cod];
 
   return (
     <footer className="border-t bg-card">

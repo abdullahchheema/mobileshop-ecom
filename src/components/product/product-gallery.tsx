@@ -4,7 +4,6 @@ import { useState } from "react";
 import Image from "next/image";
 import { useI18n } from "@/components/i18n/lang-provider";
 import { DeviceArt } from "@/components/product/device-art";
-import { creditForImage } from "@/lib/product-photos";
 import { cn } from "@/lib/utils";
 
 /** Product photos with thumbnails, or the tinted illustration when there are none. */
@@ -34,7 +33,6 @@ export function ProductGallery({
   }
 
   const current = images[Math.min(index, images.length - 1)];
-  const credit = creditForImage(current);
   return (
     <div className="space-y-3">
       <div className="relative aspect-square overflow-hidden rounded-3xl bg-secondary">
@@ -61,15 +59,6 @@ export function ProductGallery({
       )}
       <p className="text-center text-xs text-muted-foreground">
         {t.product.photosNote}
-        {credit && (
-          <>
-            {" "}
-            {t.product.photoBy}: {credit.author},{" "}
-            <a href={credit.source} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
-              {credit.license}
-            </a>
-          </>
-        )}
       </p>
     </div>
   );

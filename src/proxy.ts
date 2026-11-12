@@ -1,9 +1,5 @@
-import { getSessionCookie } from "better-auth/cookies";
 import { NextResponse, type NextRequest } from "next/server";
-import { DEFAULT_LANG, isStorefrontPath, LANG_COOKIE, localizePath, stripLang } from "@/i18n/config";
-
-/** Pages that need a signed-in visitor (checked optimistically here, properly on the page). */
-const PROTECTED = /^\/(account|checkout|admin)(\/|$)/;
+import { DEFAULT_LANG, isStorefrontPath, LANG_COOKIE, stripLang } from "@/i18n/config";
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
@@ -17,13 +13,6 @@ export function proxy(request: NextRequest) {
   }
 
   const lang = /^\/ur(\/|$)/.test(pathname) ? "ur" : DEFAULT_LANG;
-  const bare = stripLang(pathname);
-
-  if (PROTECTED.test(bare) && !getSessionCookie(request)) {
-    const signIn = new URL(localizePath("/sign-in", lang), request.url);
-    signIn.searchParams.set("next", pathname + search);
-    return NextResponse.redirect(signIn);
-  }
 
   if (!isStorefrontPath(pathname)) return NextResponse.next();
 
@@ -32,7 +21,7 @@ export function proxy(request: NextRequest) {
     lang === DEFAULT_LANG
       ? NextResponse.rewrite(new URL(`/${DEFAULT_LANG}${pathname === "/" ? "" : pathname}${search}`, request.url))
       : NextResponse.next();
-  // Remember the language for server-side redirects that happen outside a page (payments, actions).
+  // Remember the language for server-side redirects that happen outside a page.
   if (request.cookies.get(LANG_COOKIE)?.value !== lang) {
     response.cookies.set(LANG_COOKIE, lang, { path: "/", sameSite: "lax", maxAge: 60 * 60 * 24 * 365 });
   }

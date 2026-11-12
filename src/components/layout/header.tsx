@@ -1,13 +1,12 @@
 import { Suspense } from "react";
 import { CircleHelpIcon, MapPinIcon, ShieldCheckIcon } from "lucide-react";
-import { CartButton, CartLink } from "@/components/cart/cart-button";
+import { CartButton } from "@/components/cart/cart-button";
 import Link from "@/components/i18n/link";
 import { CategoryNav } from "@/components/layout/category-nav";
 import { LanguageLinks, LanguageSwitch } from "@/components/layout/language-switch";
 import { Logo } from "@/components/layout/logo";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { SearchBar } from "@/components/layout/search-bar";
-import { UserMenu } from "@/components/layout/user-menu";
 import { Button } from "@/components/ui/button";
 import type { Lang } from "@/i18n/config";
 import { getDict } from "@/i18n";
@@ -28,6 +27,9 @@ export async function Header({ lang }: { lang: Lang }) {
           </Link>
           <Link href="/journal" className="hover:underline">
             {t.header.journal}
+          </Link>
+          <Link href="/orders" className="hover:underline">
+            {t.footer.links.track}
           </Link>
           <span className="ms-auto flex items-center gap-1.5">
             <MapPinIcon className="size-3.5" />
@@ -50,12 +52,7 @@ export async function Header({ lang }: { lang: Lang }) {
               {t.header.help}
             </Link>
           </Button>
-          <Suspense fallback={<div className="mx-2 size-7 animate-pulse rounded-full bg-secondary" />}>
-            <UserMenu lang={lang} />
-          </Suspense>
-          <Suspense fallback={<CartLink lang={lang} />}>
-            <CartButton lang={lang} />
-          </Suspense>
+          <CartButton lang={lang} />
         </div>
       </div>
 

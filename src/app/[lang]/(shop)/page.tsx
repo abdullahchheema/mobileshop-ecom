@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "@/components/i18n/link";
 import {
   BadgeCheckIcon,
@@ -23,7 +22,7 @@ import { ProductRail } from "@/components/product/product-rail";
 import { Button } from "@/components/ui/button";
 import { getBanners, getBrands, getNavCategories, getProductRail } from "@/lib/catalog";
 import { site } from "@/lib/site";
-import type { Banner } from "@/generated/prisma/client";
+import type { Banner } from "@/lib/banners";
 import type { Lang } from "@/i18n/config";
 import { categoryLabel, type Dict, getDict, langOf } from "@/i18n";
 import { alternatesFor } from "@/i18n/seo";
@@ -36,22 +35,24 @@ export async function generateMetadata({ params }: PageProps<"/[lang]">): Promis
 export default async function HomePage({ params }: PageProps<"/[lang]">) {
   const lang = await langOf(params);
   const t = getDict(lang);
-  const [banners, promoBanners, categories, deals, bestSellers, phones, laptops, brands] = await Promise.all([
+  const [banners, promoBanners, categories, deals, bestSellers, brands] = await Promise.all([
     getBanners("HOME_HERO"),
     getBanners("HOME_PROMO"),
     getNavCategories(),
     getProductRail({ sort: "savings", limit: 12 }),
     getProductRail({ sort: "popular", limit: 12 }),
-    getProductRail({ category: "smartphones", sort: "popular", limit: 12 }),
-    getProductRail({ category: "laptops", sort: "popular", limit: 12 }),
     getBrands(),
   ]);
+  // One carousel for each of the shop's two biggest categories (the ERP's own category names).
+  const rails = await Promise.all(
+    categories.slice(0, 2).map(async (c) => ({ category: c, products: await getProductRail({ category: c.slug, sort: "popular", limit: 12 }) })),
+  );
 
   const [hero] = banners.map((b) => bannerIn(b, lang));
   const promos = promoBanners.map((b) => bannerIn(b, lang));
 
-  // "Most wanted": every subcategory, shown with its parent's icon.
-  const shortcuts = categories.flatMap((c) => c.children.map((child) => ({ ...child, icon: c.icon })));
+  // "Most wanted": one tile per category.
+  const shortcuts = categories;
 
   return (
     <>
@@ -71,11 +72,7 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
               <CarouselItem key={s.id} className="w-28 sm:w-32">
                 <Link href={`/l/${s.slug}`} className="group block text-center text-sm font-medium">
                   <span className="relative block aspect-square overflow-hidden rounded-xl border bg-card p-3 transition group-hover:shadow-md">
-                    {TILE_PHOTOS[s.slug] ? (
-                      <Image src={TILE_PHOTOS[s.slug]} alt="" fill sizes="128px" className="object-cover object-center" />
-                    ) : (
-                      <DeviceArt kind={s.icon ?? "phone"} color={TILE_COLORS[i % TILE_COLORS.length]} />
-                    )}
+                    <DeviceArt kind={s.icon ?? "phone"} color={TILE_COLORS[i % TILE_COLORS.length]} />
                   </span>
                   <span className="mt-2 block">{categoryLabel(t, s.slug, s.name)}</span>
                 </Link>
@@ -117,11 +114,11 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
 
         <TrendzPromise t={t} />
 
-        <ProductRail title={t.home.popularPhones} products={phones} href="/l/smartphones" lang={lang} />
+        {rails[0] && <ProductRail title={categoryLabel(t, rails[0].category.slug, rails[0].category.name)} products={rails[0].products} href={`/l/${rails[0].category.slug}`} lang={lang} />}
 
         <HowItWorks t={t} />
 
-        <ProductRail title={t.home.popularLaptops} products={laptops} href="/l/laptops" lang={lang} />
+        {rails[1] && <ProductRail title={categoryLabel(t, rails[1].category.slug, rails[1].category.name)} products={rails[1].products} href={`/l/${rails[1].category.slug}`} lang={lang} />}
 
         <section aria-labelledby="services" className="space-y-4">
           <SectionTitle id="services">{t.home.more}</SectionTitle>
@@ -175,9 +172,6 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
   );
 }
 
-/** Real photos for shortcut tiles; other categories use an illustration. */
-const TILE_PHOTOS: Record<string, string> = { iphone: "/images/products/iphone-15-pro.jpg" };
-
 const TILE_COLORS = ["#110f15", "#b3c8ef", "#ffb5b3", "#94f5bc", "#ceb5f2", "#f1cd8e", "#d0d2d8"];
 
 function SectionTitle({ id, children }: { id?: string; children: React.ReactNode }) {
@@ -208,17 +202,12 @@ function Hero({ banner }: { banner: ReturnType<typeof bannerIn> }) {
   );
 }
 
-/** Two real iPhone photos, overlapping, on the end side of the hero. */
+/** Device illustrations on the end side of the hero. */
 function HeroArt() {
-  const card = "absolute overflow-hidden rounded-2xl bg-white shadow-[0_8px_16px_0_rgba(17,15,21,0.12)]";
   return (
-    <div aria-hidden className="relative mx-auto h-72 w-full max-w-md md:h-96 md:max-w-none">
-      <div className={`${card} start-[6%] top-0 h-[85%] w-[44%] -rotate-3 md:start-[12%] md:w-[38%]`}>
-        <Image src="/images/products/iphone-15.jpg" alt="" fill priority sizes="(min-width: 768px) 22vw, 40vw" className="object-cover" />
-      </div>
-      <div className={`${card} end-[6%] bottom-0 h-[85%] w-[44%] rotate-3 md:end-[12%] md:w-[38%]`}>
-        <Image src="/images/products/iphone-15-pro-max.jpg" alt="" fill priority sizes="(min-width: 768px) 22vw, 40vw" className="object-cover" />
-      </div>
+    <div aria-hidden className="mx-auto flex h-72 w-full max-w-md items-end justify-center md:h-96 md:max-w-none">
+      <DeviceArt kind="tablet" color="#9351f6" className="-me-10 h-full" />
+      <DeviceArt kind="phone" color="#e3f77e" className="z-10 h-5/6" />
     </div>
   );
 }

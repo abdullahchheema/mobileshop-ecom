@@ -1,18 +1,15 @@
+"use client";
+
 import { ShoppingBagIcon } from "lucide-react";
 import Link from "@/components/i18n/link";
 import { Button } from "@/components/ui/button";
 import type { Lang } from "@/i18n/config";
 import { getDict } from "@/i18n";
-import { getCartCount } from "@/lib/cart";
-import { currentCartOwner } from "@/lib/cart-owner";
+import { useCartCount } from "@/lib/cart-store";
 
-/** Header cart icon with item count. Reads cookies/session, so render inside <Suspense>. */
-export async function CartButton({ lang }: { lang: Lang }) {
-  const count = await getCartCount(await currentCartOwner());
-  return <CartLink count={count} lang={lang} />;
-}
-
-export function CartLink({ count = 0, lang }: { count?: number; lang: Lang }) {
+/** Header cart icon with the item count, read from this browser's cart. */
+export function CartButton({ lang }: { lang: Lang }) {
+  const count = useCartCount();
   return (
     <Button asChild variant="ghost" size="icon-lg" className="relative" aria-label={getDict(lang).header.cart(count)}>
       <Link href="/cart">
