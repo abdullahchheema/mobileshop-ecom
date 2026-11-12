@@ -103,6 +103,14 @@ How it works (`src/lib/payments/service.ts`):
 
 Every storefront page sets a canonical URL and `hreflang` alternates (`alternatesFor` in `src/i18n/seo.ts`). `/sitemap.xml` lists categories and products in both languages; `/robots.txt` keeps private pages out. Product pages include `Product` and `BreadcrumbList` JSON-LD, and the home page `Organization` and `WebSite` (search box). Set `NEXT_PUBLIC_APP_URL` to the real domain in production, since all absolute URLs come from it.
 
+## Covison ERP stock sync
+
+Stock from the shop ERP is mirrored into one seller's offers. Full design, decisions and phases: [docs/crm-integration.md](docs/crm-integration.md).
+
+1. Create and approve the combined seller (set its commission to 0), then run `npx tsx --env-file=.env scripts/crm-create-source.mts <seller-slug>`. It prints the API key and HMAC signing secret once (`--rotate-hmac` adds or rotates the HMAC secret on an existing source).
+2. The ERP sends `POST /api/integrations/crm/stock` with `Authorization: Bearer crm_…` (plus `X-Crm-Timestamp` and `X-Crm-Signature` when HMAC is enabled) and a snapshot `{ "full": true, "items": [{ productCode, productName, condition, pta, price, stock, warrantyDays }] }`.
+3. Each ERP group stays unlisted until an admin maps it at **Admin → ERP stock sync** (`/admin/erp-sync`): pick the product (suggested from the ERP name) and one value per option; the variant is created if it doesn't exist yet. Saving lists the group immediately; unmapping sells its listing out. Items with a bad price, stock, or a warranty under 12 months come back in `rejected` without blocking the rest. The **Reconciliation** tab and `GET`/`POST /api/integrations/crm/reconciliation` compare ERP stock against live Trendz offers and surface mismatch alerts.
+
 ## Notes for contributors
 
 - **Cache Components is on.** Shared database reads use `"use cache"` (see `src/lib/catalog.ts`). Anything per-request (session, cookies) must render inside `<Suspense>` and go through `getSession()` in `src/lib/session.ts`.

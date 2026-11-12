@@ -4,9 +4,7 @@ import { refresh, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { ADMINS_ONLY, isAdmin } from "@/lib/admin";
 import { db } from "@/lib/db";
-import { CheckoutError, cancelOrder } from "@/lib/orders";
 import { createPayout, markPayoutPaid, PayoutError } from "@/lib/payouts";
-import { applyReturnAction, ReturnError } from "@/lib/return-requests";
 import { setSellerStatus } from "@/lib/sellers";
 import { formatPkr } from "@/lib/site";
 
@@ -19,40 +17,6 @@ export async function setSellerStatusAction(sellerId: string, status: "APPROVED"
   await setSellerStatus(parsed.sellerId, parsed.status);
   // Approving or suspending a seller shows or hides all of their offers.
   revalidateTag("offers", "max");
-  refresh();
-  return { ok: true as const };
-}
-
-export async function adminCancelOrderAction(orderId: string) {
-  if (!(await isAdmin())) return ADMINS_ONLY;
-  try {
-    await cancelOrder(null, z.string().parse(orderId));
-  } catch (e) {
-    if (e instanceof CheckoutError) return { ok: false as const, error: e.message };
-    throw e;
-  }
-  revalidateTag("offers", "max");
-  refresh();
-  return { ok: true as const };
-}
-
-const returnActionSchema = z.object({
-  id: z.string().min(1),
-  action: z.enum(["approve", "reject", "receive", "refund"]),
-  note: z.string().trim().max(300).optional(),
-  refundRef: z.string().trim().max(60).optional(),
-});
-
-export async function returnAction(input: z.input<typeof returnActionSchema>) {
-  if (!(await isAdmin())) return ADMINS_ONLY;
-  const parsed = returnActionSchema.safeParse(input);
-  if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Check the form." };
-  try {
-    await applyReturnAction(parsed.data.id, parsed.data.action, parsed.data);
-  } catch (e) {
-    if (e instanceof ReturnError) return { ok: false as const, error: e.message };
-    throw e;
-  }
   refresh();
   return { ok: true as const };
 }

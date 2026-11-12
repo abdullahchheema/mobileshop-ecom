@@ -69,12 +69,18 @@ const returnSelect = {
   },
 } as const;
 
-export function listReturns(status: ReturnStatus) {
-  return db.returnRequest.findMany({ where: { status }, orderBy: { createdAt: "asc" }, take: 100, select: returnSelect });
+export function listReturns(status: ReturnStatus, sellerId?: string) {
+  return db.returnRequest.findMany({
+    where: { status, ...(sellerId && { orderItem: { sellerOrder: { sellerId } } }) },
+    orderBy: { createdAt: "asc" }, take: 100, select: returnSelect });
 }
 
-export async function countReturnsByStatus() {
-  const rows = await db.returnRequest.groupBy({ by: ["status"], _count: { _all: true } });
+export async function countReturnsByStatus(sellerId?: string) {
+  const rows = await db.returnRequest.groupBy({
+    by: ["status"],
+    ...(sellerId && { where: { orderItem: { sellerOrder: { sellerId } } } }),
+    _count: { _all: true },
+  });
   return Object.fromEntries(rows.map((r) => [r.status, r._count._all])) as Partial<Record<ReturnStatus, number>>;
 }
 

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "@/components/i18n/link";
 import {
   BadgeCheckIcon,
@@ -69,8 +70,12 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
             {shortcuts.map((s, i) => (
               <CarouselItem key={s.id} className="w-28 sm:w-32">
                 <Link href={`/l/${s.slug}`} className="group block text-center text-sm font-medium">
-                  <span className="block aspect-square rounded-xl border bg-card p-3 transition group-hover:shadow-md">
-                    <DeviceArt kind={s.icon ?? "phone"} color={TILE_COLORS[i % TILE_COLORS.length]} />
+                  <span className="relative block aspect-square overflow-hidden rounded-xl border bg-card p-3 transition group-hover:shadow-md">
+                    {TILE_PHOTOS[s.slug] ? (
+                      <Image src={TILE_PHOTOS[s.slug]} alt="" fill sizes="128px" className="object-cover object-center" />
+                    ) : (
+                      <DeviceArt kind={s.icon ?? "phone"} color={TILE_COLORS[i % TILE_COLORS.length]} />
+                    )}
                   </span>
                   <span className="mt-2 block">{categoryLabel(t, s.slug, s.name)}</span>
                 </Link>
@@ -115,20 +120,6 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
         <ProductRail title={t.home.popularPhones} products={phones} href="/l/smartphones" lang={lang} />
 
         <HowItWorks t={t} />
-
-        <section className="grid items-center gap-6 overflow-hidden rounded-2xl bg-ink px-6 pt-8 text-white md:grid-cols-2 md:px-10 md:py-10">
-          <div className="flex flex-col items-start">
-            <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">{t.home.services.sell.title}</h2>
-            <p className="mt-2 text-white/75">{t.home.services.sell.text}</p>
-            <Button asChild size="sm" className="mt-5 h-8 bg-white px-3 text-ink hover:bg-white/85">
-              <Link href="/sell">{t.home.services.sell.cta}</Link>
-            </Button>
-          </div>
-          <div aria-hidden className="mx-auto flex h-44 w-full max-w-sm items-end justify-center md:h-56">
-            <DeviceArt kind="tablet" color="#9351f6" className="-me-10 h-full" />
-            <DeviceArt kind="phone" color="#e3f77e" className="z-10 h-5/6" />
-          </div>
-        </section>
 
         <ProductRail title={t.home.popularLaptops} products={laptops} href="/l/laptops" lang={lang} />
 
@@ -184,6 +175,9 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
   );
 }
 
+/** Real photos for shortcut tiles; other categories use an illustration. */
+const TILE_PHOTOS: Record<string, string> = { iphone: "/images/products/iphone-15-pro.jpg" };
+
 const TILE_COLORS = ["#110f15", "#b3c8ef", "#ffb5b3", "#94f5bc", "#ceb5f2", "#f1cd8e", "#d0d2d8"];
 
 function SectionTitle({ id, children }: { id?: string; children: React.ReactNode }) {
@@ -214,14 +208,17 @@ function Hero({ banner }: { banner: ReturnType<typeof bannerIn> }) {
   );
 }
 
-/** Overlapping devices on the end side of the hero. */
+/** Two real iPhone photos, overlapping, on the end side of the hero. */
 function HeroArt() {
+  const card = "absolute overflow-hidden rounded-2xl bg-white shadow-[0_8px_16px_0_rgba(17,15,21,0.12)]";
   return (
-    <div aria-hidden className="relative mx-auto h-64 w-full max-w-md md:h-96 md:max-w-none">
-      <DeviceArt kind="laptop" color="#d0d2d8" className="absolute inset-y-0 end-4 size-auto h-full" />
-      <DeviceArt kind="tablet" color="#7f34d5" className="absolute start-0 bottom-0 size-auto h-3/5 -rotate-6" />
-      <DeviceArt kind="phone" color="#110f15" className="absolute end-0 bottom-2 size-auto h-1/2 rotate-12" />
-      <DeviceArt kind="phone" color="#ff4d6a" className="absolute start-1/3 bottom-0 size-auto h-1/2 -rotate-3" />
+    <div aria-hidden className="relative mx-auto h-72 w-full max-w-md md:h-96 md:max-w-none">
+      <div className={`${card} start-[6%] top-0 h-[85%] w-[44%] -rotate-3 md:start-[12%] md:w-[38%]`}>
+        <Image src="/images/products/iphone-15.jpg" alt="" fill priority sizes="(min-width: 768px) 22vw, 40vw" className="object-cover" />
+      </div>
+      <div className={`${card} end-[6%] bottom-0 h-[85%] w-[44%] rotate-3 md:end-[12%] md:w-[38%]`}>
+        <Image src="/images/products/iphone-15-pro-max.jpg" alt="" fill priority sizes="(min-width: 768px) 22vw, 40vw" className="object-cover" />
+      </div>
     </div>
   );
 }

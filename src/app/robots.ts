@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { site } from "@/lib/site";
 
 // Private and per-visitor pages, in both languages. Search results are thin, so they stay out too.
-const PRIVATE = ["/account", "/cart", "/checkout", "/search", "/sign-in", "/sign-up", "/sell/apply", "/sell/status"];
+const PRIVATE = ["/account", "/cart", "/checkout", "/search", "/sign-in", "/sign-up"];
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -12,7 +12,6 @@ export default function robots(): MetadataRoute.Robots {
       disallow: [
         ...PRIVATE,
         ...PRIVATE.map((path) => `/ur${path}`),
-        "/seller",
         "/admin",
         "/api/",
         "/payment/",

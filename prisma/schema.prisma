@@ -149,8 +149,88 @@ model Seller {
   offers        Offer[]
   sellerOrders  SellerOrder[]
   payouts       Payout[]
+  crmSource     CrmSource?
 
   @@index([status])
+}
+
+// ─── Covison ERP stock sync ─────────────────────────────────────────────────
+
+/// An external shop system (Covison ERP) whose stock is mirrored into one seller's offers.
+model CrmSource {
+  id              String          @id @default(cuid())
+  name            String
+  sellerId        String          @unique
+  seller          Seller          @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  /// SHA-256 of the API key; the key itself is shown once when the source is created.
+  apiKeyHash      String          @unique
+  /// Optional HMAC-SHA256 signing secret. When set, requests must include X-Crm-Timestamp and X-Crm-Signature.
+  hmacSecret      String?
+  lastSyncAt      DateTime?
+  lastSyncSummary Json?
+  createdAt       DateTime        @default(now())
+  listings        CrmListingMap[]
+  orders          CrmOrderSync[]
+  returns         CrmReturnSync[]
+}
+
+enum CrmOrderStatus {
+  BOOKED
+  FAILED
+}
+
+/// The ERP's answer for one seller order. No row yet means the ERP has not acknowledged it.
+model CrmOrderSync {
+  id            String         @id @default(cuid())
+  sellerOrderId String         @unique
+  sellerOrder   SellerOrder    @relation(fields: [sellerOrderId], references: [id], onDelete: Cascade)
+  sourceId      String
+  source        CrmSource      @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  status        CrmOrderStatus
+  /// ERP document codes (one sales invoice per phone) when booked.
+  documents     String[]
+  /// Why the ERP could not fulfil it, when failed.
+  reason        String?
+  /// The ERP recorded the cash collected on delivery (cash on delivery orders).
+  collectedAt   DateTime?
+  /// The ERP cancelled its invoices after the order was cancelled.
+  reversedAt    DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([sourceId, status])
+}
+
+/// The ERP's record of a refunded return (its credit note and refund codes).
+model CrmReturnSync {
+  id              String        @id @default(cuid())
+  returnRequestId String        @unique
+  returnRequest   ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+  sourceId        String
+  source          CrmSource     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  documents       String[]
+  createdAt       DateTime      @default(now())
+}
+
+/// One stock group in the ERP (model + storage + colour, condition, PTA status).
+/// `variantId` stays null until an admin maps it to a Trendz variant; unmapped groups are never listed.
+model CrmListingMap {
+  id                 String    @id @default(cuid())
+  sourceId           String
+  source             CrmSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  crmProductCode     String
+  crmCondition       String
+  ptaStatus          String
+  crmProductName     String
+  variantId          String?
+  variant            Variant?  @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  lastPrice          Int       @default(0)
+  lastStock          Int       @default(0)
+  lastWarrantyMonths Int       @default(12)
+  lastSeenAt         DateTime  @default(now())
+
+  @@unique([sourceId, crmProductCode, crmCondition, ptaStatus])
+  @@index([variantId])
 }
 
 // ─── Catalog ────────────────────────────────────────────────────────────────
@@ -245,14 +325,15 @@ model OptionValue {
 
 /// One exact combination of option values, e.g. Good · 128 GB · Blue.
 model Variant {
-  id             String        @id @default(cuid())
+  id             String          @id @default(cuid())
   productId      String
-  product        Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
-  sku            String        @unique
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku            String          @unique
   /// Sorted OptionValue ids joined by "|", so a combination exists only once.
   combinationKey String
   optionValues   OptionValue[]
   offers         Offer[]
+  crmListings    CrmListingMap[]
 
   @@unique([productId, combinationKey])
 }
@@ -394,6 +475,7 @@ model SellerOrder {
   payoutId       String?
   payout         Payout?           @relation(fields: [payoutId], references: [id])
   items          OrderItem[]
+  crmSync        CrmOrderSync?
 
   @@index([sellerId, status])
   @@index([orderId])
@@ -466,20 +548,21 @@ enum ReturnStatus {
 
 /// A buyer returning one order line (all of its units).
 model ReturnRequest {
-  id           String       @id @default(cuid())
+  id           String         @id @default(cuid())
   orderItemId  String
-  orderItem    OrderItem    @relation(fields: [orderItemId], references: [id])
+  orderItem    OrderItem      @relation(fields: [orderItemId], references: [id])
   reason       String
   details      String?
-  status       ReturnStatus @default(REQUESTED)
+  status       ReturnStatus   @default(REQUESTED)
   /// Note from Trendz to the buyer (rejection reason, return instructions…).
   resolution   String?
   refundAmount Int?
   /// Bank / wallet transfer reference for the refund.
   refundRef    String?
   refundedAt   DateTime?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  crmSync      CrmReturnSync?
 
   @@index([orderItemId])
   @@index([status])
@@ -493,19 +576,19 @@ enum BannerPlacement {
 }
 
 model Banner {
-  id        String          @id @default(cuid())
-  placement BannerPlacement
-  title     String
-  subtitle  String?
-  ctaLabel  String?
+  id         String          @id @default(cuid())
+  placement  BannerPlacement
+  title      String
+  subtitle   String?
+  ctaLabel   String?
   /// Urdu text for the /ur storefront; the English fields are used when these are empty.
   titleUr    String?
   subtitleUr String?
   ctaLabelUr String?
-  ctaHref   String?
-  image     String?
+  ctaHref    String?
+  image      String?
   /// Color theme key used by the UI, e.g. "mint" or "mango".
-  theme     String          @default("mint")
-  sortOrder Int             @default(0)
-  isActive  Boolean         @default(true)
+  theme      String          @default("mint")
+  sortOrder  Int             @default(0)
+  isActive   Boolean         @default(true)
 }

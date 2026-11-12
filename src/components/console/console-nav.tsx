@@ -9,6 +9,7 @@ import {
   LayoutDashboardIcon,
   ListIcon,
   PackageIcon,
+  RefreshCwIcon,
   SmartphoneIcon,
   StoreIcon,
   Undo2Icon,
@@ -28,6 +29,7 @@ const ICONS = {
   products: SmartphoneIcon,
   categories: FolderTreeIcon,
   banners: ImageIcon,
+  sync: RefreshCwIcon,
 };
 
 export type ConsoleNavItem = { href: string; label: string; icon: keyof typeof ICONS; exact?: boolean };

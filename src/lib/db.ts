@@ -1,12 +1,14 @@
 import "server-only";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
+import { pgAdapterConfig } from "@/lib/pg-config";
 
 // Reuse one client across hot reloads in dev so we don't exhaust connections.
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 function createClient() {
-  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+  const { config, options } = pgAdapterConfig();
+  const adapter = new PrismaPg(config, options);
   return new PrismaClient({ adapter });
 }
 

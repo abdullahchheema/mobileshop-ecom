@@ -6,8 +6,6 @@ export default function AdminLayout({ children }: LayoutProps<"/admin">) {
       label="Admin"
       nav={[
         { href: "/admin", label: "Dashboard", icon: "dashboard", exact: true },
-        { href: "/admin/orders", label: "Orders", icon: "orders" },
-        { href: "/admin/returns", label: "Returns", icon: "returns" },
         { href: "/admin/payouts", label: "Payouts", icon: "payouts" },
         { href: "/admin/sellers", label: "Sellers", icon: "sellers" },
         { href: "/admin/products", label: "Products", icon: "products" },

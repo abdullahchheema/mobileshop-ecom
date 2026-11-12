@@ -27,9 +27,10 @@ function searchWhere(q: string): Prisma.OrderWhereInput {
   };
 }
 
-export async function listAdminOrders(opts: { status: OrderStatus | "ALL"; q?: string; page: number }) {
+export async function listAdminOrders(opts: { status: OrderStatus | "ALL"; q?: string; page: number; sellerId?: string }) {
   const pageSize = 30;
   const where: Prisma.OrderWhereInput = {
+    ...(opts.sellerId && { sellerOrders: { some: { sellerId: opts.sellerId } } }),
     ...(opts.status !== "ALL" && { status: opts.status }),
     ...(opts.q && searchWhere(opts.q)),
   };

@@ -90,6 +90,7 @@ export const en = {
       journal: "Tech journal",
       terms: "Terms of service",
       privacy: "Privacy policy",
+      photoCredits: "Photo credits",
     },
     payments: "Payment methods",
     copyright: (year: number, name: string) => `© ${year} ${name}. Made in Pakistan.`,
@@ -222,6 +223,7 @@ export const en = {
       `Buy a refurbished ${name} from verified sellers in Pakistan. ${months}-month warranty, ${days}-day free returns and cash on delivery.`,
     illustration: "Illustration in your selected color.",
     photosNote: "Photos show the model. Each device's exact look matches its condition grade.",
+    photoBy: "Photo",
     photo: (n: number) => `Photo ${n}`,
     unavailable: "No seller has this exact configuration right now. Try another condition, storage or color.",
     save: (amount: string, pct: number) => `Save ${amount} (${pct}%)`,
@@ -463,6 +465,16 @@ export const en = {
     codeFailed: "That code didn't work. Check it and try again.",
     wrongPassword: "Wrong email or password.",
     createFailed: "Could not create your account.",
+  },
+  photoCredits: {
+    title: "Photo credits",
+    intro:
+      "The product photos on Trendz Mobile are shared by their photographers on Wikimedia Commons under Creative Commons licenses. We resized and compressed them; nothing else was changed. Thank you to everyone below.",
+    subject: "Photo of",
+    by: "By",
+    license: "License",
+    source: "Original",
+    note: "Products without a photo of that exact model show an illustration instead.",
   },
   notFound: {
     title: "This page isn't here (yet)",

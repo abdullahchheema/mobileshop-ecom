@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "@/components/i18n/link";
-import { ChevronRightIcon, FlameIcon, MenuIcon, RefreshCwIcon, StoreIcon } from "lucide-react";
+import { ChevronRightIcon, FlameIcon, MenuIcon, RefreshCwIcon } from "lucide-react";
 import { CategoryIcon } from "@/components/layout/category-icon";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -46,7 +46,6 @@ export function MobileNav({ categories }: { categories: NavCategory[] }) {
             </div>
           ))}
           <MenuLink href="/trade-in" icon={<RefreshCwIcon className="size-5 text-muted-foreground" />} label={t.header.tradeIn} />
-          <MenuLink href="/sell" icon={<StoreIcon className="size-5 text-muted-foreground" />} label={t.header.sell} />
         </nav>
       </SheetContent>
     </Sheet>

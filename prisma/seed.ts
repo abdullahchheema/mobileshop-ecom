@@ -5,10 +5,12 @@ import { randomUUID } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { hashPassword } from "better-auth/crypto";
 import { PrismaClient, type UserRole } from "../src/generated/prisma/client";
+import { pgAdapterConfig } from "../src/lib/pg-config";
+import { PRODUCT_PHOTOS } from "../src/lib/product-photos";
 import { slugify } from "../src/lib/slug";
 import { BANNERS, BRANDS, CATEGORIES, CONDITIONS, PRODUCTS, PTA_STATUSES, SELLERS } from "./seed-data";
 
-const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
+const db = new PrismaClient({ adapter: new PrismaPg(pgAdapterConfig().config, pgAdapterConfig().options) });
 
 /** Dev-only password for every seeded account. Never use outside local development. */
 const DEV_PASSWORD = "trendz-dev-pass";
@@ -145,7 +147,7 @@ async function seedProduct(
       releaseYear: p.releaseYear,
       newPrice: p.newPrice,
       specs: p.specs,
-      images: [],
+      images: PRODUCT_PHOTOS[p.slug] ? [PRODUCT_PHOTOS[p.slug].image] : [],
       description: `Refurbished ${p.name}, inspected and graded by verified Trendz sellers.`,
       options: {
         create: pickers.map((picker, position) => ({

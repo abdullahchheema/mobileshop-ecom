@@ -22,9 +22,6 @@ const columns = (t: Dict) => [
   {
     title: t.footer.sell,
     links: [
-      { label: t.footer.links.becomeSeller, href: "/sell" },
-      { label: t.footer.links.sellerHub, href: "/seller" },
-      { label: t.footer.links.standards, href: "/sell/standards" },
       { label: t.footer.links.tradeIn, href: "/trade-in" },
     ],
   },
@@ -36,6 +33,7 @@ const columns = (t: Dict) => [
       { label: t.footer.links.journal, href: "/journal" },
       { label: t.footer.links.terms, href: "/legal/terms" },
       { label: t.footer.links.privacy, href: "/legal/privacy" },
+      { label: t.footer.links.photoCredits, href: "/photo-credits" },
     ],
   },
 ];

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "@/components/i18n/link";
-import { LayoutDashboardIcon, LogOutIcon, PackageIcon, StoreIcon, UserIcon } from "lucide-react";
+import { LayoutDashboardIcon, LogOutIcon, PackageIcon, UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -51,13 +51,6 @@ export function UserMenuDropdown({ name, contact, role }: Props) {
             <PackageIcon /> {t.account.myOrders}
           </Link>
         </DropdownMenuItem>
-        {role === "SELLER" && (
-          <DropdownMenuItem asChild>
-            <Link href="/seller">
-              <StoreIcon /> {t.account.sellerHub}
-            </Link>
-          </DropdownMenuItem>
-        )}
         {role === "ADMIN" && (
           <DropdownMenuItem asChild>
             <Link href="/admin">

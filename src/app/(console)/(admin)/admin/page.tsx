@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: "Dashboard · Admin", robots: { index
 export default function AdminDashboard() {
   return (
     <>
-      <PageHeader title="Dashboard" description="The marketplace at a glance." />
+      <PageHeader title="Dashboard" description="The website at a glance. Orders, returns and listings are run from the ERP (E-commerce section)." />
       <Suspense fallback={<div className="h-96 animate-pulse rounded-2xl bg-background" />}>
         <Dashboard />
       </Suspense>
@@ -30,11 +30,10 @@ async function Dashboard() {
   const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  const [gmv, ordersToday, lateConfirmations, pendingSellers, openReturns, candidates, recent] = await Promise.all([
+  const [gmv, ordersToday, lateConfirmations, openReturns, candidates, recent] = await Promise.all([
     db.order.aggregate({ where: { createdAt: { gte: monthAgo }, status: { not: "CANCELLED" } }, _sum: { total: true }, _count: { _all: true } }),
     db.order.count({ where: { createdAt: { gte: dayAgo } } }),
     db.sellerOrder.count({ where: { status: "PENDING", order: { createdAt: { lt: dayAgo } } } }),
-    db.seller.count({ where: { status: "PENDING" } }),
     db.returnRequest.count({ where: { status: { in: ["REQUESTED", "APPROVED", "RECEIVED"] } } }),
     getPayoutCandidates(now),
     db.order.findMany({
@@ -48,17 +47,15 @@ async function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <Stat label="Sales, last 30 days" value={formatPkr(gmv._sum.total ?? 0)} note={`${gmv._count._all} orders`} href="/admin/orders" />
-        <Stat label="Orders, last 24 hours" value={ordersToday} href="/admin/orders" />
+        <Stat label="Sales, last 30 days" value={formatPkr(gmv._sum.total ?? 0)} note={`${gmv._count._all} orders`} />
+        <Stat label="Orders, last 24 hours" value={ordersToday} />
         <Stat
-          label="Sellers late to confirm"
+          label="Orders waiting to be confirmed"
           value={lateConfirmations}
           note="Pending for more than 24 hours"
-          href="/admin/orders?status=PENDING"
           alert={lateConfirmations > 0}
         />
-        <Stat label="Seller applications" value={pendingSellers} href="/admin/sellers" alert={pendingSellers > 0} />
-        <Stat label="Open returns" value={openReturns} href="/admin/returns" alert={openReturns > 0} />
+        <Stat label="Open returns" value={openReturns} alert={openReturns > 0} />
         <Stat label="Payouts ready" value={formatPkr(payoutsDue)} note={(() => {
             const n = candidates.filter((c) => c.eligibleCount).length;
             return `${n} ${n === 1 ? "seller" : "sellers"}`;
@@ -68,21 +65,19 @@ async function Dashboard() {
       <section className="rounded-2xl border bg-background">
         <div className="flex items-center justify-between border-b px-5 py-3">
           <h2 className="font-semibold">Latest orders</h2>
-          <Link href="/admin/orders" className="text-sm font-medium text-primary hover:underline">
-            All orders
-          </Link>
+          <span className="text-sm text-muted-foreground">Manage them in the ERP</span>
         </div>
         <ul className="divide-y">
           {recent.map((o) => (
             <li key={o.id}>
-              <Link href={`/admin/orders/${o.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 text-sm hover:bg-secondary/50">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 text-sm">
                 <span className="font-semibold">{formatOrderNumber(o.number)}</span>
                 <OrderStatusBadge status={o.status} />
                 <span className="text-muted-foreground">
                   {o.shipName}, {o.shipCity} · {formatDate(o.createdAt)}
                 </span>
                 <span className="ml-auto font-semibold">{formatPkr(o.total)}</span>
-              </Link>
+              </div>
             </li>
           ))}
         </ul>
@@ -101,20 +96,26 @@ function Stat({
   label: string;
   value: string | number;
   note?: string;
-  href: string;
+  /** Only for pages that still live on the website; orders and returns are managed in the ERP. */
+  href?: string;
   alert?: boolean;
 }) {
-  return (
-    <Link
-      href={href}
-      className={`group rounded-2xl border p-5 transition hover:border-primary/40 ${alert ? "border-mango bg-mango/30" : "bg-background"}`}
-    >
+  const body = (
+    <>
       <p className="text-sm text-muted-foreground">{label}</p>
       <p className="mt-2 text-3xl font-semibold tracking-tight">{value}</p>
       <p className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
         <span>{note}</span>
-        <ArrowRightIcon className="size-4 transition group-hover:translate-x-0.5" />
+        {href && <ArrowRightIcon className="size-4 transition group-hover:translate-x-0.5" />}
       </p>
+    </>
+  );
+  const className = `group rounded-2xl border p-5 transition ${alert ? "border-mango bg-mango/30" : "bg-background"}`;
+  return href ? (
+    <Link href={href} className={`${className} hover:border-primary/40`}>
+      {body}
     </Link>
+  ) : (
+    <div className={className}>{body}</div>
   );
 }

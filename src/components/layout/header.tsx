@@ -26,9 +26,6 @@ export async function Header({ lang }: { lang: Lang }) {
             <ShieldCheckIcon className="size-3.5" />
             {t.header.promise(site.warrantyMonths, site.returnDays)}
           </Link>
-          <Link href="/sell" className="hover:underline">
-            {t.header.sell}
-          </Link>
           <Link href="/journal" className="hover:underline">
             {t.header.journal}
           </Link>

@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { DEFAULT_LANG, isStorefrontPath, LANG_COOKIE, localizePath, stripLang } from "@/i18n/config";
 
 /** Pages that need a signed-in visitor (checked optimistically here, properly on the page). */
-const PROTECTED = /^\/(account|checkout|seller|admin)(\/|$)/;
+const PROTECTED = /^\/(account|checkout|admin)(\/|$)/;
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;

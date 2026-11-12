@@ -1,4 +1,4 @@
-import { FlameIcon, RefreshCwIcon, StoreIcon } from "lucide-react";
+import { FlameIcon, RefreshCwIcon } from "lucide-react";
 import Link from "@/components/i18n/link";
 import { CategoryIcon } from "@/components/layout/category-icon";
 import type { Lang } from "@/i18n/config";
@@ -27,10 +27,6 @@ export function CategoryNav({ categories, lang }: { categories: NavCategory[]; l
           <Link href="/trade-in" className={linkClass}>
             <RefreshCwIcon className="size-4" />
             {t.header.tradeIn}
-          </Link>
-          <Link href="/sell" className={linkClass}>
-            <StoreIcon className="size-4" />
-            {t.header.sell}
           </Link>
         </div>
       </div>
