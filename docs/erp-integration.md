@@ -13,7 +13,9 @@ the decisions made, and how to test.
   transaction id. The website never sends `payment_status`; for prepaid methods the shop confirms the payment before
   dispatch. It shows no bank or wallet numbers (none were supplied): the shop contacts the customer.
 - **Returns and refunds** are handled by the shop; the order page tells the buyer to contact the shop with the reference.
-- **Delivery fee:** Rs 250, free from Rs 30,000, sent as `delivery_fee`; the ERP checks the total (`expected_total`).
+- **Delivery fee:** priced from the ERP's settings (`GET /api/online/config/`: default fee, free-delivery amount, a province's own fee;
+  Rs 250 / free from Rs 30,000 only while the ERP cannot be reached), sent as `delivery_fee`; the ERP re-checks the fee and the total (`expected_total`).
+- **Amounts** (`price`, `delivery_fee`, `expected_total`) are sent as text with exactly two decimals, added up in paisa.
 
 ## What is where
 | Guide section | Code |

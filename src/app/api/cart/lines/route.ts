@@ -14,6 +14,7 @@ export async function POST(request: Request) {
   const parsed = body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError(400, "INVALID", "Invalid cart.");
   const current = await getVariantsByKey(parsed.data.items.map((i) => i.key));
+  // buildCartView merges a variant that is listed twice into one line.
   const config = await getStoreConfig();
   return Response.json({ cart: buildCartView(parsed.data.items, current, (subtotal) => deliveryFee(config, subtotal)) });
 }

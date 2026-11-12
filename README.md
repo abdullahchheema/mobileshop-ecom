@@ -52,7 +52,11 @@ node scripts/mock-erp.mjs      # http://localhost:4010 (order key: mock-key)
   and price, so a stale page can never oversell. The ERP key never reaches the browser.
 - **Orders** (`/order/[ref]`, `/orders`): tracking needs the order number and the phone number it was placed with (checked on the server, see `docs/erp-integration.md`). "My orders" lists orders placed
   on this device. Returns and refunds are handled by the shop (the ERP's online team).
-- **Banners** (`src/lib/banners.ts`) and **delivery fee** (`src/lib/shipping.ts`: Rs 250, free from Rs 30,000) are fixed in code.
+- **Banners** (`src/lib/banners.ts`) are fixed in code. The **delivery fee** and the payment methods come from the ERP's settings
+  (`src/lib/erp-config.ts`, `src/lib/store-config.ts`: default fee, free-delivery amount, a province's own fee); `src/lib/shipping.ts`
+  (Rs 250, free from Rs 30,000) is only the fallback while the ERP cannot be reached.
+- **Money** is added up in paisa (`src/lib/cart.ts`) and sent to the ERP as text with two decimals, so a total never carries binary-float
+  noise such as `269997.30000000005`.
 
 ## Deploying
 

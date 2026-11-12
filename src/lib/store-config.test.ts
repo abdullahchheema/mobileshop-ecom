@@ -44,6 +44,6 @@ describe("the order sent to the ERP", () => {
   it("carries the province so the ERP prices delivery the same way", () => {
     const payload = buildOrderPayload({ ref: "TM-1", customer: { name: "Ali", phone: "+923001234567", line1: "House 1", city: "Karachi", province: "SINDH" }, lines: [], deliveryFee: 500, expectedTotal: 500 });
     expect(payload.customer.province).toBe("Sindh");
-    expect(payload.delivery_fee).toBe(500);
+    expect(payload.delivery_fee).toBe("500.00");
   });
 });

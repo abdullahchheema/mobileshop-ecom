@@ -1,4 +1,4 @@
-import type { CurrentVariant } from "@/lib/cart";
+import { type CurrentVariant, roundMoney } from "@/lib/cart";
 import { provinceLabel } from "@/lib/pakistan";
 import type { PaymentMethod } from "@/lib/payment";
 
@@ -35,8 +35,9 @@ export function buildOrderPayload(o: OrderInput) {
     },
     payment_method: o.paymentMethod ?? "Cash on Delivery",
     ...(o.paymentReference && { payment_reference: o.paymentReference }),
-    delivery_fee: o.deliveryFee,
-    expected_total: o.expectedTotal,
+    // Money goes as text with exactly two decimals: a JSON number can carry binary-float noise (269997.30000000005) that the ERP refuses.
+    delivery_fee: o.deliveryFee.toFixed(2),
+    expected_total: o.expectedTotal.toFixed(2),
     ...(o.notes && { notes: o.notes }),
     items: o.lines.map(({ variant: v, quantity }) => ({
       product_id: v.productId,
@@ -45,7 +46,7 @@ export function buildOrderPayload(o: OrderInput) {
       ...(v.condition && { condition: v.condition }),
       ...(v.pta && { pta_status: v.pta }),
       ...(v.type && { device_type: v.type }),
-      price: String(v.price),
+      price: v.price.toFixed(2),
       quantity,
     })),
   };
@@ -61,11 +62,12 @@ type ErpBody = { error?: string; message?: string; external_ref?: string; total?
 export function classifyPlaceResponse(status: number, body: ErpBody | null, fallbackRef: string): PlaceResult {
   const message = String(body?.error ?? body?.message ?? "").trim();
   if (status === 201 || status === 200) {
-    return { ok: true, ref: body?.external_ref ?? fallbackRef, total: Number(body?.total ?? 0), status: body?.status ?? "New", created: status === 201 || body?.created !== false };
+    return { ok: true, ref: body?.external_ref ?? fallbackRef, total: roundMoney(Number(body?.total ?? 0)), status: body?.status ?? "New", created: status === 201 || body?.created !== false };
   }
   if (status === 409) {
     // Stock words first: "no longer available (it may have been sold, or its price changed)" is a sold-out message.
-    const code = /stock|sold|available|quantity|exist/i.test(message) ? "OUT_OF_STOCK" : /price/i.test(message) ? "PRICE_CHANGED" : "CONFLICT";
+    // A payment method the shop switched off is "not available right now" too, but it is not a stock problem: check it first.
+    const code = /payment method/i.test(message) ? "CONFLICT" : /stock|sold|available|quantity|exist/i.test(message) ? "OUT_OF_STOCK" : /price/i.test(message) ? "PRICE_CHANGED" : "CONFLICT";
     return { ok: false, code, message: message || "Some items changed. Please review your cart.", status };
   }
   if (status === 400) return { ok: false, code: "INVALID", message: message || "Please check your details and try again.", status };
@@ -137,7 +139,7 @@ export async function getErpOrder(ref: string): Promise<OrderStatus | null> {
     paymentStatus: b.payment_status ? String(b.payment_status) : null,
     courier: b.courier ? String(b.courier) : null,
     tracking: b.tracking ? String(b.tracking) : null,
-    total: Number(b.total ?? 0),
+    total: roundMoney(Number(b.total ?? 0)),
     placedOn: b.placed_on ? String(b.placed_on) : null,
     dispatchedOn: b.dispatched_on ? String(b.dispatched_on) : null,
     deliveredOn: b.delivered_on ? String(b.delivered_on) : null,

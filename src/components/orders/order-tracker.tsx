@@ -74,6 +74,8 @@ function OrderDetails({ order, justPlaced }: { order: OrderStatus; justPlaced: b
   const { t } = useI18n();
   const main = order.orderStatus ?? order.status;
   const cancelled = order.status === "Cancelled";
+  // A parcel that came back to the shop is over too: it must not wear the green "all good" badge.
+  const closed = cancelled || order.status === "Returned";
   const confirmed = main !== "Unconfirmed" && main !== "New";
   const steps = [
     { label: t.track.statuses.New, done: true },
@@ -91,7 +93,7 @@ function OrderDetails({ order, justPlaced }: { order: OrderStatus; justPlaced: b
             <h1 className="text-2xl font-semibold tracking-tight">{order.ref}</h1>
             {order.placedOn && <p className="mt-1 text-sm text-muted-foreground">{t.track.placed(date(order.placedOn))}</p>}
           </div>
-          <span className={`rounded-full px-3 py-1 text-sm font-semibold ${cancelled ? "bg-destructive/10 text-destructive" : "bg-mint text-savings"}`}>
+          <span className={`rounded-full px-3 py-1 text-sm font-semibold ${closed ? "bg-destructive/10 text-destructive" : "bg-mint text-savings"}`}>
             {t.track.statuses[main] ?? main}
           </span>
           {order.stage && order.stage !== order.status && <p className="w-full text-sm text-muted-foreground">{order.stage}</p>}

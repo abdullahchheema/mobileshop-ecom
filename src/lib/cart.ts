@@ -50,10 +50,23 @@ export type CartView = {
   totals: { subtotal: number; shipping: number; total: number };
 };
 
+/** Rupees as whole paisa. Money is added up in paisa so 89,999.10 x 3 is 269,997.30, never 269997.30000000005 (which the ERP would refuse as a third decimal). */
+export const toPaisa = (rupees: number) => Math.round(rupees * 100);
+export const fromPaisa = (paisa: number) => paisa / 100;
+/** One amount cleaned of binary-float noise (two decimals at most). */
+export const roundMoney = (rupees: number) => fromPaisa(toPaisa(rupees));
+
+/** The same variant listed twice (a hand-edited or damaged saved cart) becomes one line with the quantities added, which is what the ERP requires. */
+export function mergeItems(items: CartItem[]): CartItem[] {
+  const merged = new Map<string, number>();
+  for (const { key, qty } of items) merged.set(key, (merged.get(key) ?? 0) + clampQuantity(qty));
+  return [...merged].map(([key, qty]) => ({ key, qty: clampQuantity(qty) }));
+}
+
 export const clampQuantity = (qty: number) => Math.min(MAX_PER_LINE, Math.max(1, Math.floor(Number.isFinite(qty) ? qty : 1)));
 
 export function buildCartView(items: CartItem[], current: Map<string, CurrentVariant>, shippingFor: ShippingFn = (n) => (n > 0 ? shipmentFee(n) : 0)): CartView {
-  const lines: CartLineView[] = items.map(({ key, qty }) => {
+  const lines: CartLineView[] = mergeItems(items).map(({ key, qty }) => {
     const v = current.get(key);
     const quantity = clampQuantity(qty);
     if (!v) {
@@ -75,12 +88,12 @@ export function buildCartView(items: CartItem[], current: Map<string, CurrentVar
     };
   });
   const buyable = lines.filter((l) => l.available);
-  const subtotal = buyable.reduce((sum, l) => sum + l.price * l.quantity, 0);
-  const shipping = subtotal > 0 ? shippingFor(subtotal) : 0;
+  const subtotal = fromPaisa(buyable.reduce((sum, l) => sum + toPaisa(l.price) * l.quantity, 0));
+  const shipping = subtotal > 0 ? roundMoney(shippingFor(subtotal)) : 0;
   return {
     lines,
     itemCount: lines.reduce((n, l) => n + l.quantity, 0),
     hasUnavailable: lines.some((l) => !l.available),
-    totals: { subtotal, shipping, total: subtotal + shipping },
+    totals: { subtotal, shipping, total: fromPaisa(toPaisa(subtotal) + toPaisa(shipping)) },
   };
 }

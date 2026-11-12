@@ -11,6 +11,7 @@ import { useI18n } from "@/components/i18n/lang-provider";
 import Link from "@/components/i18n/link";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { fromPaisa, toPaisa } from "@/lib/cart";
 import { clearCart, rememberOrder } from "@/lib/cart-store";
 import { CITIES, PROVINCES } from "@/lib/pakistan";
 import { isPrepaid, type PaymentMethod } from "@/lib/payment";
@@ -66,7 +67,7 @@ export function CheckoutView() {
   if (failed && !cart) return <p className="rounded-2xl border border-destructive/40 bg-destructive/5 p-6 text-sm text-destructive">{t.checkout.unavailable}</p>;
   if (!cart || cart.lines.length === 0) return null;
   const shipping = deliveryFee(config, cart.totals.subtotal, province ? provinceLabel(province) : undefined);
-  const totals = { ...cart.totals, shipping, total: cart.totals.subtotal + shipping };
+  const totals = { ...cart.totals, shipping, total: fromPaisa(toPaisa(cart.totals.subtotal) + toPaisa(shipping)) };
   const total = totals.total;
   const offered = config.paymentMethods;
   const accounts = offered.find((m) => m.method === method)?.accounts ?? [];
