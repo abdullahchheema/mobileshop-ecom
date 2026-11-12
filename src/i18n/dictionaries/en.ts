@@ -306,6 +306,9 @@ export const en = {
     freeFrom: (amount: string) => `Delivery is free on orders from ${amount}.`,
   },
   checkout: {
+    paymentMethod: { "Cash on Delivery": "Cash on delivery", "Bank Transfer": "Bank transfer", Easypaisa: "Easypaisa", JazzCash: "JazzCash", Card: "Card" } as Record<string, string>,
+    paymentReference: "Transaction ID (optional)",
+    prepaidNote: "The shop will contact you to confirm your payment before your order is dispatched.",
     title: "Checkout",
     summary: "Order summary",
     address: "Delivery address",
@@ -328,7 +331,6 @@ export const en = {
     email: "Email (optional)",
     notes: "Notes for delivery (optional)",
     notesPlaceholder: "For example: call before you arrive",
-    codOnly: "Cash on delivery is the only payment method for now.",
     stockChanged: "Some items changed. We've updated your cart: please review it.",
     unavailable: "We couldn't place your order right now. Please try again in a few minutes.",
   },

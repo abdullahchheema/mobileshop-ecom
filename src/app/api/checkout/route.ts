@@ -4,6 +4,7 @@ import { buildCartView, clampQuantity, MAX_LINES } from "@/lib/cart";
 import { ErpOrderConfigError, placeErpOrder } from "@/lib/erp-orders";
 import { apiError } from "@/lib/http";
 import { normalizePkMobile } from "@/lib/phone";
+import { PAYMENT_METHODS } from "@/lib/payment";
 import { PROVINCES } from "@/lib/pakistan";
 import { clientIp, tooMany } from "@/lib/rate-limit";
 
@@ -13,7 +14,9 @@ const body = z.object({
   /** Generated once per checkout in the browser; the ERP treats a repeat of the same ref as the same order. */
   orderId: z.string().regex(/^[A-Za-z0-9]{8,24}$/, "Invalid order id"),
   items: z.array(z.object({ key: z.string().min(1).max(200), qty: z.number().int().min(1).max(99) })).min(1, "Your cart is empty.").max(MAX_LINES),
-  expectedTotal: z.number().int().nonnegative(),
+  expectedTotal: z.number().nonnegative(),
+  paymentMethod: z.enum(PAYMENT_METHODS, { message: "Choose a payment method" }).default("Cash on Delivery"),
+  paymentReference: z.string().trim().max(80).optional().transform((v) => v || undefined),
   name: z.string().trim().min(2, "Enter your full name").max(80),
   phone: z.string().transform((v, ctx) => {
     const phone = normalizePkMobile(v);
@@ -31,7 +34,7 @@ const body = z.object({
 });
 
 /**
- * Places a cash-on-delivery order. The browser's cart only names variants and quantities: prices and totals are
+ * Places an order (cash on delivery or a prepaid method the shop confirms). The browser's cart only names variants and quantities: prices and totals are
  * rebuilt here from the ERP's data, compared with what the customer saw, and sent to the ERP, which re-checks everything.
  */
 export async function POST(request: Request) {
@@ -46,7 +49,7 @@ export async function POST(request: Request) {
   const current = await getVariantsByKey(items.map((i) => i.key));
   const cart = buildCartView(items, current);
   if (cart.hasUnavailable) return apiError(409, "OUT_OF_STOCK", "Some items are no longer available. Please review your cart.");
-  if (cart.totals.total !== input.expectedTotal) return apiError(409, "PRICE_CHANGED", "The price changed. Please review your cart and confirm again.");
+  if (Math.abs(cart.totals.total - input.expectedTotal) > 0.01) return apiError(409, "PRICE_CHANGED", "The price changed. Please review your cart and confirm again.");
 
   if (tooMany(`checkout-order:${ip}`, 8, 10 * 60_000)) return apiError(429, "RATE_LIMITED", "Too many orders from this connection. Please wait a few minutes.");
 
@@ -55,6 +58,8 @@ export async function POST(request: Request) {
       ref: `TM-${input.orderId.toUpperCase()}`,
       customer: { name: input.name, phone: input.phone, email: input.email, line1: input.line1, line2: input.line2, city: input.city, province: input.province },
       notes: input.notes,
+      paymentMethod: input.paymentMethod,
+      paymentReference: input.paymentMethod === "Cash on Delivery" ? undefined : input.paymentReference,
       lines: items.map((i) => ({ variant: current.get(i.key)!, quantity: i.qty })),
       deliveryFee: cart.totals.shipping,
       expectedTotal: cart.totals.total,

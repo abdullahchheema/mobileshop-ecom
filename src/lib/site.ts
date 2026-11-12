@@ -11,4 +11,5 @@ export const site = {
   supportEmail: "support@example.com",
 } as const;
 
-export const formatPkr = (amount: number) => `Rs ${amount.toLocaleString("en-PK")}`;
+/** Whole rupees, with decimals only when the price has them. */
+export const formatPkr = (amount: number) => `Rs ${amount.toLocaleString("en-PK", { maximumFractionDigits: Number.isInteger(amount) ? 0 : 2 })}`;

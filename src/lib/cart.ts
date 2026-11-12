@@ -2,7 +2,7 @@
 // everything shown or sent to the ERP (price, stock, name) is looked up fresh from the ERP's catalogue views.
 import { shipmentFee } from "@/lib/shipping";
 
-export const MAX_PER_LINE = 5;
+export const MAX_PER_LINE = 50; // capped again by the ERP's stock for each variant
 export const MAX_LINES = 40; // the ERP accepts up to 40 lines per order
 
 export type CartItem = { key: string; qty: number };

@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildCartView, type CurrentVariant } from "./cart";
-import { buildOrderPayload, classifyPlaceResponse } from "./erp-orders";
+import { buildOrderPayload, classifyPlaceResponse, placeErpOrder } from "./erp-orders";
 
 const phone: CurrentVariant = { price: 48000, quantity: 2, warrantyMonths: 12, productId: "42", condition: "Very Good", pta: "PTA", type: "Used", name: "iPhone 11", slug: "iphone-11", image: null, label: "128GB · Black", kind: "smartphone" };
 const accessory: CurrentVariant = { ...phone, price: 4500, quantity: 10, productId: "77", condition: null, pta: null, type: null, name: "AirPods 2", slug: "airpods-2" };
@@ -72,8 +72,56 @@ describe("buildCartView", () => {
     expect(view.lines.map((l) => [l.key, l.available, l.stock])).toEqual([["a", false, 2], ["gone", false, 0], ["b", true, 10]]);
     expect(view.totals.subtotal).toBe(4500);
   });
-  it("caps a quantity at 5 and at the stock", () => {
-    expect(buildCartView([{ key: "b", qty: 9 }], current).lines[0]).toMatchObject({ quantity: 5, maxQuantity: 5 });
+  it("caps a quantity at 50 and at the stock", () => {
+    expect(buildCartView([{ key: "b", qty: 99 }], current).lines[0]).toMatchObject({ quantity: 50, maxQuantity: 10, available: false });
+    expect(buildCartView([{ key: "b", qty: 9 }], current).lines[0]).toMatchObject({ quantity: 9, maxQuantity: 10, available: true });
     expect(buildCartView([{ key: "a", qty: 1 }], current).lines[0].maxQuantity).toBe(2);
+  });
+});
+
+describe("order payload extras", () => {
+  const base = { ref: "TM-1", customer: { name: "A B", phone: "+923001234567", line1: "House 1, Street 2", city: "Lahore", province: "PUNJAB" }, deliveryFee: 0, expectedTotal: 4500 };
+  it("sends accessories without empty condition/pta/type", () => {
+    const p = buildOrderPayload({ ...base, lines: [{ variant: { ...accessory, condition: "", pta: "", type: "" }, quantity: 1 }] });
+    expect(p.items[0]).toEqual({ product_id: "77", price: "4500", quantity: 1 });
+  });
+  it("carries the chosen payment method and reference, and never marks the order paid", () => {
+    const p = buildOrderPayload({ ...base, paymentMethod: "Easypaisa", paymentReference: "TX123", lines: [{ variant: accessory, quantity: 1 }] });
+    expect(p).toMatchObject({ payment_method: "Easypaisa", payment_reference: "TX123" });
+    expect(p).not.toHaveProperty("payment_status");
+  });
+});
+
+describe("placeErpOrder", () => {
+  const order = { ref: "TM-1", customer: { name: "A B", phone: "+923001234567", line1: "House 1, Street 2", city: "Lahore", province: "PUNJAB" }, deliveryFee: 0, expectedTotal: 4500, lines: [{ variant: accessory, quantity: 1 }] };
+  const reply = (status: number, body: unknown) => (async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
+  beforeEach(() => {
+    process.env.ERP_API_URL = "https://erp.test";
+    process.env.ERP_API_KEY = "k";
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("sends the key in X-API-Key only", async () => {
+    let seen: RequestInit | undefined;
+    const f = (async (_u: string, init?: RequestInit) => ((seen = init), new Response(JSON.stringify({ external_ref: "TM-1", total: 4500 }), { status: 201 }))) as unknown as typeof fetch;
+    const r = await placeErpOrder(order, f);
+    expect(r).toMatchObject({ ok: true, created: true });
+    expect((seen!.headers as Record<string, string>)["X-API-Key"]).toBe("k");
+    expect(String(seen!.body)).not.toContain("\"k\"");
+  });
+  it("treats 200 created:false as success (a retry of an order that already exists)", async () => {
+    expect(await placeErpOrder(order, reply(200, { external_ref: "TM-1", created: false, total: 4500 }))).toMatchObject({ ok: true, created: false });
+  });
+  it("gives a generic message on 401 and logs it loudly", async () => {
+    const r = await placeErpOrder(order, reply(401, { error: "bad key" }));
+    expect(r).toMatchObject({ ok: false, code: "UNAVAILABLE", status: 401 });
+    expect((r as { message: string }).message).not.toMatch(/key/i);
+    expect(console.error).toHaveBeenCalled();
+  });
+  it("reports a 5xx and a network failure as unavailable", async () => {
+    expect(await placeErpOrder(order, reply(503, {}))).toMatchObject({ ok: false, code: "UNAVAILABLE" });
+    const down = (async () => { throw new Error("ECONNRESET"); }) as unknown as typeof fetch;
+    expect(await placeErpOrder(order, down)).toMatchObject({ ok: false, code: "UNAVAILABLE", status: 0 });
   });
 });

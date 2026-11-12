@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   BanknoteIcon,
-  ShieldCheckIcon,
   ShoppingCartIcon,
   TruckIcon,
   Undo2Icon,
@@ -106,7 +105,7 @@ export function ProductPurchase({ name, brand, releaseYear, kind, images, images
         </Button>
 
         {offer && <Facts t={t} offer={offer} />}
-        {offer && <Perks t={t} offer={offer} />}
+        {offer && <Perks t={t} />}
 
         <div className="space-y-6 border-t pt-6">
           {pickers.map((picker) => (
@@ -188,7 +187,7 @@ function Facts({ t, offer }: { t: Dict; offer: OfferSummary }) {
   );
 }
 
-function Perks({ t, offer }: { t: Dict; offer: OfferSummary }) {
+function Perks({ t }: { t: Dict }) {
   const items = [
     { icon: TruckIcon, text: t.product.perks.delivery },
     { icon: BanknoteIcon, text: t.product.perks.payment },

@@ -1,5 +1,6 @@
 import type { CurrentVariant } from "@/lib/cart";
 import { provinceLabel } from "@/lib/pakistan";
+import type { PaymentMethod } from "@/lib/payment";
 
 // Orders go to the ERP's order API (POST /api/online/orders/, header X-API-Key). Prices and totals are recomputed by
 // the ERP from its own data; what we send is only compared against them. The ERP's response decides everything.
@@ -11,6 +12,9 @@ export type OrderInput = {
   ref: string;
   customer: Customer;
   notes?: string;
+  paymentMethod?: PaymentMethod;
+  /** Optional transaction id the customer typed for a prepaid method. */
+  paymentReference?: string;
   lines: { variant: CurrentVariant; quantity: number }[];
   deliveryFee: number;
   expectedTotal: number;
@@ -28,16 +32,18 @@ export function buildOrderPayload(o: OrderInput) {
       address,
       city: o.customer.city,
     },
-    payment_method: "Cash on Delivery",
+    payment_method: o.paymentMethod ?? "Cash on Delivery",
+    ...(o.paymentReference && { payment_reference: o.paymentReference }),
     delivery_fee: o.deliveryFee,
     expected_total: o.expectedTotal,
     ...(o.notes && { notes: o.notes }),
     items: o.lines.map(({ variant: v, quantity }) => ({
       product_id: v.productId,
       // Phones: condition, pta_status and device_type exactly as in the web_variants row.
-      ...(v.condition !== null && { condition: v.condition }),
-      ...(v.pta !== null && { pta_status: v.pta }),
-      ...(v.type !== null && { device_type: v.type }),
+      // Accessories have none of these: omit them rather than send empty strings.
+      ...(v.condition && { condition: v.condition }),
+      ...(v.pta && { pta_status: v.pta }),
+      ...(v.type && { device_type: v.type }),
       price: String(v.price),
       quantity,
     })),
@@ -74,11 +80,11 @@ function config() {
   return { url, key };
 }
 
-export async function placeErpOrder(order: OrderInput): Promise<PlaceResult> {
+export async function placeErpOrder(order: OrderInput, doFetch: typeof fetch = fetch): Promise<PlaceResult> {
   const { url, key } = config();
   let response: Response;
   try {
-    response = await fetch(`${url}/api/online/orders/`, {
+    response = await doFetch(`${url}/api/online/orders/`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-API-Key": key },
       body: JSON.stringify(buildOrderPayload(order)),
@@ -90,7 +96,7 @@ export async function placeErpOrder(order: OrderInput): Promise<PlaceResult> {
     return { ok: false, code: "UNAVAILABLE", message: "We couldn't place your order right now. Please try again in a few minutes.", status: 0 };
   }
   const body = (await response.json().catch(() => null)) as ErpBody | null;
-  if (response.status === 401) console.error("[erp-orders] the ERP rejected ERP_API_KEY (401): check the key or that the API is switched on");
+  if (response.status === 401) console.error("[erp-orders] 401 FROM THE ERP: ERP_API_KEY is wrong or the online API is switched off. Orders are failing until this is fixed.");
   return classifyPlaceResponse(response.status, body, order.ref);
 }
 

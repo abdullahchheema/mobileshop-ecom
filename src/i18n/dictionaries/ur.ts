@@ -311,6 +311,9 @@ export const ur: Dict = {
     freeFrom: (amount) => `${amount} یا اس سے زیادہ کے آرڈر پر ڈیلیوری مفت ہے۔`,
   },
   checkout: {
+    paymentMethod: { "Cash on Delivery": "کیش آن ڈیلیوری", "Bank Transfer": "بینک ٹرانسفر", Easypaisa: "ایزی پیسہ", JazzCash: "جاز کیش", Card: "کارڈ" } as Record<string, string>,
+    paymentReference: "ٹرانزیکشن آئی ڈی (اختیاری)",
+    prepaidNote: "آرڈر روانہ کرنے سے پہلے دکان ادائیگی کی تصدیق کے لیے آپ سے رابطہ کرے گی۔",
     title: "چیک آؤٹ",
     summary: "آرڈر کا خلاصہ",
     address: "ڈیلیوری کا پتا",
@@ -333,7 +336,6 @@ export const ur: Dict = {
     email: "ای میل (اختیاری)",
     notes: "ڈیلیوری کے لیے ہدایات (اختیاری)",
     notesPlaceholder: "مثلاً: آنے سے پہلے کال کریں",
-    codOnly: "فی الحال صرف کیش آن ڈیلیوری دستیاب ہے۔",
     stockChanged: "کچھ آئٹمز تبدیل ہو گئے ہیں۔ ہم نے آپ کی کارٹ اپ ڈیٹ کر دی ہے، براہ کرم دیکھ لیں۔",
     unavailable: "ہم ابھی آپ کا آرڈر نہیں لے سکے۔ براہ کرم چند منٹ بعد دوبارہ کوشش کریں۔",
   },
