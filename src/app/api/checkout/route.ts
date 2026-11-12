@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { z } from "zod";
 import { getVariantsByKey } from "@/lib/catalog";
 import { buildCartView, clampQuantity, MAX_LINES } from "@/lib/cart";
@@ -65,6 +66,8 @@ export async function POST(request: Request) {
       deliveryFee: cart.totals.shipping,
       expectedTotal: cart.totals.total,
     });
+    // The unit is committed in the ERP: drop the cached catalogue so the next visitor (and this one) already sees it gone.
+    if (result.ok) revalidateTag("catalogue", { expire: 0 });
     if (!result.ok) return apiError(result.code === "UNAVAILABLE" ? 503 : result.status || 409, result.code, result.message);
     return Response.json({ order: { ref: result.ref, total: result.total || cart.totals.total, status: result.status } }, { status: 201 });
   } catch (e) {

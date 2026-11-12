@@ -27,7 +27,7 @@ export function ProductCard({
     <Link
       href={`/p/${product.slug}${query}`}
       className={cn(
-        "group flex h-full flex-col rounded-xl border bg-card p-3 transition hover:shadow-[0_8px_16px_0_rgba(17,15,21,0.12)]",
+        "group flex h-full flex-col rounded-xl border bg-card p-3 transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_16px_0_rgba(17,15,21,0.12)] active:translate-y-0 motion-reduce:transform-none",
         className,
       )}
     >
@@ -38,7 +38,7 @@ export function ProductCard({
             alt={product.name}
             fill
             sizes="(min-width: 1024px) 220px, (min-width: 768px) 33vw, 50vw"
-            className="object-contain transition duration-300 group-hover:scale-105"
+            className={cn("object-contain transition duration-300 group-hover:scale-105", product.soldOut && "opacity-60")}
           />
         ) : (
           <DeviceArt kind={product.kind} color={product.colors[0]?.hex} className="p-3 transition duration-300 group-hover:scale-105" />

@@ -10,9 +10,17 @@ const KEY = process.env.MOCK_ERP_KEY ?? "mock-key";
 const svg = (bg, label) =>
   "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600"><rect width="600" height="600" fill="${bg}"/><text x="300" y="310" font-family="sans-serif" font-size="40" text-anchor="middle" fill="#222">${label}</text></svg>`);
 
+const SPECS = {
+  Display: { "Screen size": "6.1 inch", Type: "Super Retina XDR OLED, 120Hz" },
+  Performance: { Chipset: "Apple A15 Bionic", RAM: "6 GB", "Operating system": "iOS" },
+  Camera: { "Main camera": "12 MP wide + 12 MP ultra-wide + 12 MP telephoto", "Front camera": "12 MP" },
+  Battery: { Battery: "3095 mAh" },
+  Body: { Build: "Stainless steel frame, glass back", Biometrics: "Face ID", "Water / dust resistance": "IP68" },
+  Other: { "Launch year": "2021" },
+};
 const families = [
   { family_slug: "iphone-11", title: "iPhone 11", brand: "Apple", category: "Phones", description: "Dual camera, A13 Bionic. Tested and cleaned.", is_phone: true, cover_url: svg("#dbe7f5", "iPhone 11") },
-  { family_slug: "iphone-13-pro", title: "iPhone 13 Pro", brand: "Apple", category: "Phones", description: "Pro cameras, 120Hz display.", is_phone: true, cover_url: svg("#e5dff2", "iPhone 13 Pro") },
+  { family_slug: "iphone-13-pro", title: "iPhone 13 Pro", brand: "Apple", category: "Phones", description: "Pro cameras, 120Hz display.", specs: SPECS, is_phone: true, cover_url: svg("#e5dff2", "iPhone 13 Pro") },
   { family_slug: "galaxy-s21", title: "Samsung Galaxy S21", brand: "Samsung", category: "Phones", description: "Flagship Android, 5G.", is_phone: true, cover_url: svg("#f2e1ea", "Galaxy S21") },
   { family_slug: "airpods-2", title: "AirPods (2nd generation)", brand: "Apple", category: "Accessories", description: "Wireless earbuds.", is_phone: false, cover_url: svg("#eeeeee", "AirPods 2") },
   { family_slug: "pixel-6", title: "Google Pixel 6", brand: "Google", category: "Phones", description: "Sold out right now.", is_phone: true, cover_url: svg("#dff2e5", "Pixel 6") },
@@ -20,7 +28,7 @@ const families = [
 const L = (id, fam, storage, colour, category = "Phones", is_phone = true) => ({ product_id: id, slug: `${fam}-${id}`, family_slug: fam, page_title: null, name: `${fam} ${storage ?? ""} ${colour ?? ""}`.trim(), brand: families.find((f) => f.family_slug === fam).brand, model: fam, storage, colour, category, description: null, is_phone, cover_url: null });
 const listings = [
   L(101, "iphone-11", "64GB", "Black"), L(102, "iphone-11", "128GB", "Black"), L(103, "iphone-11", "128GB", "White"),
-  L(201, "iphone-13-pro", "256GB", "Sierra Blue"), L(301, "galaxy-s21", "128GB", "Phantom Gray"),
+  L(201, "iphone-13-pro", "256GB", "Sierra Blue"), L(202, "iphone-13-pro", "128GB", "Gold"), L(203, "iphone-13-pro", "512GB", "Graphite"), L(301, "galaxy-s21", "128GB", "Phantom Gray"),
   L(401, "airpods-2", null, "White", "Accessories", false), L(501, "pixel-6", "128GB", "Green"),
 ];
 const V = (id, condition, pta, price, quantity, extra = {}) => ({ product_id: id, condition, pta_status: pta, device_type: condition ? "Used" : "", price, compare_price: null, quantity, grade: null, battery_health: null, warranty_days: 365, ...extra });
@@ -39,11 +47,11 @@ const sum = (id) => String(id);
 
 function view(name) {
   const stockOf = (fam) => variants.filter((v) => listings.find((l) => l.product_id === v.product_id)?.family_slug === fam);
-  if (name === "web_families") return families.filter((f) => stockOf(f.family_slug).some((v) => v.quantity > 0)).map((f) => {
+  if (name === "web_families") return families.map((f) => {
     const vs = stockOf(f.family_slug).filter((v) => v.quantity > 0); const prices = vs.map((v) => v.price);
-    return { ...f, price_from: Math.min(...prices), price_to: Math.max(...prices), discount_percent: 0, stock_total: vs.reduce((n, v) => n + v.quantity, 0), variant_count: vs.length };
+    return { ...f, price_from: vs.length ? Math.min(...prices) : null, price_to: vs.length ? Math.max(...prices) : null, discount_percent: 0, stock_total: vs.reduce((n, v) => n + v.quantity, 0), variant_count: listings.filter((l) => l.family_slug === f.family_slug).length };
   });
-  if (name === "web_listings") return listings.filter((l) => variants.some((v) => v.product_id === l.product_id && v.quantity > 0));
+  if (name === "web_listings") return listings.map((l) => ({ ...l, specs: families.find((f) => f.family_slug === l.family_slug)?.specs ?? null }));
   if (name === "web_variants") return variants.filter((v) => v.quantity > 0);
   if (name === "web_images") return images;
   if (name === "web_variant_stock") return variants.filter((v) => v.quantity > 0).flatMap((v) => v.quantity > 1 ? [{ product_id: v.product_id, condition: v.condition, pta_status: v.pta_status, device_type: v.device_type, price: v.price, shop_id: 1, shop_name: "Shop A", quantity: v.quantity - 1 }, { product_id: v.product_id, condition: v.condition, pta_status: v.pta_status, device_type: v.device_type, price: v.price, shop_id: 2, shop_name: "Shop B", quantity: 1 }] : [{ product_id: v.product_id, condition: v.condition, pta_status: v.pta_status, device_type: v.device_type, price: v.price, shop_id: 1, shop_name: "Shop A", quantity: v.quantity }]);

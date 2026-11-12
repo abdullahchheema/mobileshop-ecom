@@ -33,7 +33,7 @@ export const en = {
     offers: (n: number) => plural(n, "offer", "offers"),
     products: (n: number) => plural(n, "product", "products"),
     items: (n: number) => plural(n, "item", "items"),
-    monthWarranty: (n: number) => (n > 0 ? `${n}-month warranty` : "No warranty"),
+    monthWarranty: (n: number) => (n > 0 ? `${n}-month warranty` : ""), // never a "no warranty" label
     dayReturns: (n: number) => `${n}-day free returns`,
   },
   header: {
@@ -54,6 +54,7 @@ export const en = {
     language: "Language",
   },
   footer: {
+    developedBy: "Developed by",
     perks: {
       warranty: "On every device we sell.",
       returns: "Changed your mind? Send it back.",
@@ -218,11 +219,13 @@ export const en = {
     photosNote: "Photos show the model. Each device's exact look matches its condition grade.",
     photoBy: "Photo",
     photo: (n: number) => `Photo ${n}`,
-    unavailable: "No seller has this exact configuration right now. Try another condition, storage or color.",
+    unavailable: "This exact combination is out of stock right now. Choose another option, or see what is available.",
+    inStock: "In stock",
+    showAvailable: "Show an available option",
     save: (amount: string, pct: number) => `Save ${amount} (${pct}%)`,
     onlyLeft: (n: number) => `Only ${n} left`,
     addToCart: "Add to cart",
-    unavailableButton: "Unavailable",
+    unavailableButton: "Out of stock",
     added: "Added to your cart",
     maxInCart: "You already have the maximum available in your cart",
     viewCart: "View cart",

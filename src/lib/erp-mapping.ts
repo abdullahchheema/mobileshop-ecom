@@ -284,13 +284,6 @@ export function productPage(ix: Index, slug: string) {
     });
   }
 
-  const shopsByKey = new Map<string, { name: string; quantity: number }[]>();
-  for (const sRow of ix.cat.stock ?? []) {
-    if (num(sRow.quantity) <= 0) continue;
-    const key = variantKey({ product_id: sRow.product_id, condition: sRow.condition, pta_status: sRow.pta_status, device_type: sRow.device_type, price: sRow.price });
-    shopsByKey.set(key, [...(shopsByKey.get(key) ?? []), { name: text(sRow.shop_name) || "Shop", quantity: num(sRow.quantity) }]);
-  }
-
   const soldOutVariants: VariantSummary[] = soldOutRows.map((r) => ({ id: `sold-out|${String(r.variant.product_id)}`, productId: String(r.variant.product_id), valueIds: idsFor(r), offers: [] }));
   const variants: VariantSummary[] = rows.map((r) => {
     const compare = num(r.variant.compare_price);
@@ -310,7 +303,6 @@ export function productPage(ix: Index, slug: string) {
           grade,
           batteryHealth: optionalNumber(r.variant.battery_health),
           ptaStatus: text(r.variant.pta_status) || null,
-          shops: shopsByKey.get(variantKey(r.variant)),
         },
       ],
     };

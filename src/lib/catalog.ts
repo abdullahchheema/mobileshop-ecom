@@ -1,5 +1,6 @@
 import "server-only";
-import { cacheLife } from "next/cache";
+import { createHash } from "node:crypto";
+import { cacheLife, cacheTag } from "next/cache";
 import { BANNERS, type Banner } from "@/lib/banners";
 import * as map from "@/lib/erp-mapping";
 import type { Catalogue } from "@/lib/erp-types";
@@ -31,17 +32,18 @@ async function readAll<T>(table: string, order: string[]): Promise<T[]> {
 
 async function getCatalogue(): Promise<Catalogue> {
   "use cache";
+  cacheTag("catalogue"); // the ERP (and a placed order) drop this tag so changes show at once; the minute below is only the safety net
   cacheLife("minutes"); // refreshed about every minute; shorter profiles make Next treat the whole page as dynamic
 
   try {
-    const [families, listings, variants, images, stock] = await Promise.all([
+    // Per-shop stock (web_variant_stock) is deliberately NOT read: the storefront never learns which shop holds a phone.
+    const [families, listings, variants, images] = await Promise.all([
       readAll<Catalogue["families"][number]>("web_families", ["family_slug"]),
       readAll<Catalogue["listings"][number]>("web_listings", ["product_id"]),
       readAll<Catalogue["variants"][number]>("web_variants", ["product_id", "condition", "pta_status", "device_type", "price"]),
       readAll<Catalogue["images"][number]>("web_images", ["image_id"]),
-      readAll<Catalogue["stock"][number]>("web_variant_stock", ["product_id", "condition", "pta_status", "device_type", "price", "shop_id"]),
     ]);
-    return { families, listings, variants, images, stock };
+    return { families, listings, variants, images, stock: [] };
   } catch (e) {
     if (e instanceof ErpConfigError) throw e;
     // The ERP is unreachable: log it here and show a friendly notice (see CatalogueNotice), not an error page.
@@ -51,6 +53,17 @@ async function getCatalogue(): Promise<Catalogue> {
 }
 
 const index = async () => map.indexCatalogue(await getCatalogue());
+
+/** A short fingerprint of what the storefront shows (stock, prices, pages, photos). Pages poll it and refresh themselves when it changes. */
+export async function getCatalogueVersion() {
+  const c = await getCatalogue();
+  const parts = [
+    ...c.families.map((f) => `${f.family_slug}:${f.stock_total}:${f.price_from}:${f.cover_url ?? ""}`),
+    ...c.variants.map((v) => `${v.product_id}:${v.condition}:${v.pta_status}:${v.device_type}:${v.price}:${v.quantity}`),
+    ...c.images.map((i) => `${i.image_id}:${i.position}`),
+  ];
+  return createHash("sha1").update(parts.join("|")).digest("hex").slice(0, 16);
+}
 
 /** Categories (taken from the ERP's own category names) for the header nav, menus and footer. */
 export async function getNavCategories() {

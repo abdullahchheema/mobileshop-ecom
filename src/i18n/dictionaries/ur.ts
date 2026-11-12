@@ -35,7 +35,7 @@ export const ur: Dict = {
     offers: (n) => `${n} آفرز`,
     products: (n) => `${n} پروڈکٹس`,
     items: (n) => `${n} آئٹمز`,
-    monthWarranty: (n) => (n > 0 ? `${n} ماہ کی وارنٹی` : "کوئی وارنٹی نہیں"),
+    monthWarranty: (n) => (n > 0 ? `${n} ماہ کی وارنٹی` : ""),
     dayReturns: (n) => `${n} دن میں مفت واپسی`,
   },
   header: {
@@ -56,6 +56,7 @@ export const ur: Dict = {
     language: "زبان",
   },
   footer: {
+    developedBy: "تیار کردہ",
     perks: {
       warranty: "ہمارے ہر ڈیوائس پر۔",
       returns: "ارادہ بدل گیا؟ واپس بھیج دیں۔",
@@ -224,11 +225,13 @@ export const ur: Dict = {
     photosNote: "تصاویر ماڈل کی ہیں۔ ہر ڈیوائس کی اصل حالت اس کی کنڈیشن گریڈ کے مطابق ہے۔",
     photoBy: "تصویر",
     photo: (n) => `تصویر ${n}`,
-    unavailable: "یہ کنفیگریشن ابھی کسی سیلر کے پاس نہیں۔ کوئی اور کنڈیشن، اسٹوریج یا رنگ آزمائیں۔",
+    unavailable: "یہ امتزاج ابھی اسٹاک میں نہیں۔ کوئی اور آپشن چنیں، یا دستیاب آپشن دیکھیں۔",
+    inStock: "اسٹاک میں موجود",
+    showAvailable: "دستیاب آپشن دکھائیں",
     save: (amount, pct) => `${amount} کی بچت (${pct}%)`,
     onlyLeft: (n) => `صرف ${n} باقی`,
     addToCart: "کارٹ میں ڈالیں",
-    unavailableButton: "دستیاب نہیں",
+    unavailableButton: "اسٹاک ختم",
     added: "کارٹ میں شامل ہو گیا",
     maxInCart: "آپ کے کارٹ میں دستیاب زیادہ سے زیادہ تعداد پہلے سے موجود ہے",
     viewCart: "کارٹ دیکھیں",

@@ -140,3 +140,24 @@ html[lang="ur"] {
   font-family: var(--font-naskh), var(--font-dm-sans), sans-serif;
   line-height: 1.75;
 }
+
+
+/* Interaction motion: short and purposeful. Nothing moves for visitors who ask for reduced motion. */
+@keyframes badge-pop {
+  0% { transform: scale(0.6); }
+  60% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+@keyframes added-pop {
+  0% { transform: scale(0.97); }
+  50% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

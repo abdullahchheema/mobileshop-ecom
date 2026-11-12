@@ -80,6 +80,15 @@ export async function Footer({ lang }: { lang: Lang }) {
           <p className="md:ms-auto">{t.footer.copyright(await copyrightYear(), site.name)}</p>
         </div>
       </div>
+
+      <div className="border-t">
+        <p className="mx-auto max-w-6xl px-4 py-3 text-center text-[11px] text-muted-foreground/80">
+          {t.footer.developedBy}{" "}
+          <a href="https://covison.com" target="_blank" rel="noopener noreferrer" className="font-medium underline-offset-2 transition-colors hover:text-foreground hover:underline">
+            Covison.com
+          </a>
+        </p>
+      </div>
     </footer>
   );
 }

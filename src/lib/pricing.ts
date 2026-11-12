@@ -27,8 +27,6 @@ export type OfferSummary = {
   grade?: number | null;
   batteryHealth?: number | null;
   ptaStatus?: string | null;
-  /** Which shops hold the phones (from web_variant_stock). */
-  shops?: { name: string; quantity: number }[];
 };
 
 export type VariantSummary = {
@@ -89,11 +87,18 @@ export function pickerStates(
 }
 
 /**
- * Chooses `valueId` for `pickerId`. If that exact combination isn't buyable, moves
- * to the buyable variant that keeps the most of the other choices, favouring
- * earlier pickers (condition before color), then the lower price.
+ * Chooses `valueId` for `pickerId` and changes nothing else: if that combination is out of stock the page says so, it never silently
+ * moves the customer to a different variant. (`nearestBuyable` is the explicit "show me what is available" action.)
  */
-export function selectValue(
+export function selectValue(_pickers: Picker[], _variants: VariantSummary[], selection: Selection, pickerId: string, valueId: string): Selection {
+  return { ...selection, [pickerId]: valueId };
+}
+
+/**
+ * The buyable variant closest to the customer's choice: keeps as many of the other choices as it can, favouring earlier pickers, then the
+ * lower price. Used only when the customer asks for an available option.
+ */
+export function nearestBuyable(
   pickers: Picker[],
   variants: VariantSummary[],
   selection: Selection,
@@ -105,7 +110,7 @@ export function selectValue(
   if (exact && inStock(exact)) return next;
 
   const buyable = variants.filter((v) => inStock(v) && v.valueIds.includes(valueId));
-  const candidates = buyable.length ? buyable : variants.filter((v) => v.valueIds.includes(valueId)); // a sold-out option can still be looked at
+  const candidates = buyable;
   if (candidates.length === 0) return selection;
 
   const score = (v: VariantSummary) =>
@@ -158,9 +163,9 @@ export function selectionFromParams(
   const exactVariant = findVariant(variants, exact);
   if (exactVariant && inStock(exactVariant) && requested.every((r) => exact[r.pickerId] === r.valueId)) return exact;
 
-  // Nothing buyable matches every param: honour them one by one, as clicks would.
-  let selection = defaultSelection(pickers, variants);
-  for (const r of requested) selection = selectValue(pickers, variants, selection, r.pickerId, r.valueId);
+  // Nothing buyable matches every param: keep exactly what the link asked for (it will show as out of stock) and fill the rest from the default.
+  const selection = defaultSelection(pickers, variants);
+  for (const r of requested) selection[r.pickerId] = r.valueId;
   return selection;
 }
 

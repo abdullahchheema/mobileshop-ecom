@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   BanknoteIcon,
+  CheckIcon,
   ShoppingCartIcon,
   TruckIcon,
   Undo2Icon,
@@ -15,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { type Dict, optionName, optionValueLabel } from "@/i18n";
 import {
   findVariant,
+  nearestBuyable,
   type OfferSummary,
   type Picker,
   pickerStates,
@@ -45,6 +47,8 @@ export function ProductPurchase({ name, brand, releaseYear, kind, images, images
   const router = useRouter();
   const { t, href } = useI18n();
   const [selection, setSelection] = useState(initialSelection);
+  const [last, setLast] = useState<{ pickerId: string; valueId: string } | null>(null);
+  const [added, setAdded] = useState(false);
 
   const variant = useMemo(() => findVariant(variants, selection), [variants, selection]);
   const offer = variant?.offers[0] ?? null;
@@ -64,7 +68,24 @@ export function ProductPurchase({ name, brand, releaseYear, kind, images, images
     })
     .filter(Boolean);
 
+  // When the chosen combination is out of stock, the nearest buyable one is offered as an explicit button. It is never applied silently.
+  const suggestion = useMemo(() => {
+    if (offer || !last) return null;
+    const next = nearestBuyable(pickers, variants, selection, last.pickerId, last.valueId);
+    const found = findVariant(variants, next);
+    if (!found || found.offers.length === 0) return null;
+    const label = pickers
+      .map((p) => {
+        const value = p.values.find((v) => v.id === next[p.id]);
+        return value && optionValueLabel(t, p.type, value);
+      })
+      .filter(Boolean)
+      .join(" · ");
+    return { next, label, price: found.offers[0].price };
+  }, [offer, last, pickers, variants, selection, t]);
+
   function choose(pickerId: string, valueId: string) {
+    setLast({ pickerId, valueId });
     const next = selectValue(pickers, variants, selection, pickerId, valueId);
     setSelection(next);
     // Keep the URL shareable without a server round trip.
@@ -75,6 +96,8 @@ export function ProductPurchase({ name, brand, releaseYear, kind, images, images
     if (!offer) return;
     // The cart lives in this browser; the ERP re-checks price and stock when the order is placed.
     const capped = addToCartStore(offer.id, 1, offer.stock);
+    setAdded(true);
+    window.setTimeout(() => setAdded(false), 1600);
     toast.success(capped ? t.product.maxInCart : t.product.added, {
       description: `${name} · ${summary.join(" · ")}`,
       action: { label: t.product.viewCart, onClick: () => router.push(href("/cart")) },
@@ -97,11 +120,22 @@ export function ProductPurchase({ name, brand, releaseYear, kind, images, images
           <p className="mt-1 text-sm text-muted-foreground">{summary.join(" · ")}</p>
         </div>
 
-        <PriceBlock t={t} offer={offer} newPrice={newPrice} />
+        <PriceBlock
+          t={t}
+          offer={offer}
+          newPrice={newPrice}
+          suggestion={suggestion}
+          onShowAvailable={() => suggestion && setSelection(suggestion.next)}
+        />
 
-        <Button size="lg" className="hidden h-12 w-full text-base lg:flex" disabled={!offer} onClick={addToCart}>
-          <ShoppingCartIcon data-icon="inline-start" />
-          {offer ? t.product.addToCart : t.product.unavailableButton}
+        <Button
+          size="lg"
+          className={cn("hidden h-12 w-full text-base transition-all duration-200 active:scale-[0.98] lg:flex", added && "animate-[added-pop_300ms_ease-out]")}
+          disabled={!offer}
+          onClick={addToCart}
+        >
+          {added ? <CheckIcon data-icon="inline-start" /> : <ShoppingCartIcon data-icon="inline-start" />}
+          {!offer ? t.common.soldOut : added ? t.product.added : t.product.addToCart}
         </Button>
 
         {offer && <Facts t={t} offer={offer} />}
@@ -128,20 +162,45 @@ export function ProductPurchase({ name, brand, releaseYear, kind, images, images
       >
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs text-muted-foreground">{summary.join(" · ")}</p>
-          <p className="text-lg font-semibold">{offer ? formatPkr(offer.price) : t.product.unavailableButton}</p>
+          <p className="text-lg font-semibold">{offer ? formatPkr(offer.price) : t.common.soldOut}</p>
         </div>
-        <Button size="lg" className="h-11 px-6" disabled={!offer} onClick={addToCart}>
-          {t.product.addToCart}
+        <Button size="lg" className="h-11 px-6 transition-all duration-200 active:scale-[0.97]" disabled={!offer} onClick={addToCart}>
+          {offer ? t.product.addToCart : t.common.soldOut}
         </Button>
       </div>
     </div>
   );
 }
 
-function PriceBlock({ t, offer, newPrice }: { t: Dict; offer: OfferSummary | null; newPrice: number | null }) {
+function PriceBlock({
+  t,
+  offer,
+  newPrice,
+  suggestion,
+  onShowAvailable,
+}: {
+  t: Dict;
+  offer: OfferSummary | null;
+  newPrice: number | null;
+  suggestion: { label: string; price: number } | null;
+  onShowAvailable: () => void;
+}) {
   if (!offer) {
     return (
-      <p className="rounded-xl bg-secondary px-4 py-3 text-sm">{t.product.unavailable}</p>
+      <div className="animate-in fade-in-0 space-y-3 rounded-xl bg-secondary px-4 py-3 text-sm duration-200">
+        <p className="text-base font-semibold">{t.common.soldOut}</p>
+        <p>{t.product.unavailable}</p>
+        {suggestion && (
+          <button
+            type="button"
+            onClick={onShowAvailable}
+            className="w-full rounded-lg border bg-background px-3 py-2 text-start font-medium transition-all duration-200 hover:border-foreground/30 active:scale-[0.99]"
+          >
+            <span className="block text-xs text-muted-foreground">{t.product.showAvailable}</span>
+            {suggestion.label} · {formatPkr(suggestion.price)}
+          </button>
+        )}
+      </div>
     );
   }
   const saving = newPrice ? newPrice - offer.price : 0;
@@ -160,7 +219,7 @@ function PriceBlock({ t, offer, newPrice }: { t: Dict; offer: OfferSummary | nul
           </>
         )}
       </div>
-      {offer.stock <= 2 && <p className="mt-2 text-sm font-semibold text-destructive">{t.product.onlyLeft(offer.stock)}</p>}
+      <p className="mt-2 text-sm font-semibold text-savings">{t.product.inStock}</p>
     </div>
   );
 }
@@ -170,9 +229,8 @@ function Facts({ t, offer }: { t: Dict; offer: OfferSummary }) {
     offer.ptaStatus,
     offer.grade != null ? t.common.gradeChip(offer.grade) : null,
     offer.batteryHealth != null ? t.common.batteryChip(offer.batteryHealth) : null,
-    t.common.monthWarranty(offer.warrantyMonths),
+    offer.warrantyMonths > 0 ? t.common.monthWarranty(offer.warrantyMonths) : null, // no warranty is never shown as a pill
   ].filter(Boolean) as string[];
-  const shops = offer.shops?.map((s) => `${s.name} (${s.quantity})`).join(", ");
   return (
     <div className="space-y-2">
       <ul className="flex flex-wrap gap-2">
@@ -182,7 +240,6 @@ function Facts({ t, offer }: { t: Dict; offer: OfferSummary }) {
           </li>
         ))}
       </ul>
-      {shops && <p className="text-sm text-muted-foreground">{t.common.availableAt(shops)}</p>}
     </div>
   );
 }
@@ -253,7 +310,7 @@ function PickerGroup({
               aria-pressed={isSelected}
               onClick={() => onSelect(value.id)}
               className={cn(
-                "flex min-h-14 items-center gap-2.5 rounded-xl border px-3 py-2 text-start transition",
+                "flex min-h-14 items-center gap-2.5 rounded-xl border px-3 py-2 text-start transition-all duration-200 active:scale-[0.97]",
                 isSelected ? "border-primary bg-accent ring-2 ring-primary/30" : "hover:border-foreground/30",
                 disabled && "cursor-not-allowed opacity-45",
               )}

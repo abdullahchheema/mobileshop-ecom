@@ -61,48 +61,53 @@ export function ProductDetails({ product, lang }: { product: ProductPageData; la
         </ul>
       </section>
 
-      <div className="grid gap-10 lg:grid-cols-2">
-        {specs.length > 0 && (
-          <section>
-            <SectionTitle title={t.product.specs} />
-            <div className="space-y-4">
-              {specs.map(([group, fields]) => (
-                <div key={group}>
-                  <h3 className="mb-2 text-sm font-semibold">{group}</h3>
-                  <dl className="divide-y rounded-2xl border">
-                    {Object.entries(fields).map(([key, value]) => (
-                      <div key={key} className="grid grid-cols-2 gap-4 px-4 py-3 text-sm">
-                        <dt className="text-muted-foreground">{key}</dt>
-                        <dd className="font-medium">{value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        <section>
-          <SectionTitle title={t.product.faqTitle} />
-          <Accordion type="single" collapsible className="rounded-2xl border px-4">
-            {t.product.faqs(product.name, site.warrantyMonths, site.returnDays).map((faq) => (
-              <AccordionItem key={faq.q} value={faq.q}>
-                <AccordionTrigger>{faq.q}</AccordionTrigger>
-                <AccordionContent className="text-muted-foreground">{faq.a}</AccordionContent>
-              </AccordionItem>
+      {specs.length > 0 && (
+        <section aria-labelledby="specs-title">
+          <SectionTitle title={t.product.specs} id="specs-title" />
+          {/* Cards flow in a grid: side by side where there is room, stacked on a phone, all the same style. */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {specs.map(([group, fields]) => (
+              <div key={group} className="flex h-full flex-col rounded-2xl border bg-card p-5 transition-shadow duration-200 hover:shadow-[0_8px_16px_0_rgba(17,15,21,0.08)]">
+                <h3 className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{group}</h3>
+                <dl className="grid flex-1 content-start gap-y-2.5 text-sm">
+                  {Object.entries(fields).map(([key, value]) => (
+                    <div key={key} className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3">
+                      <dt className="text-muted-foreground">{key}</dt>
+                      <dd className="font-medium break-words">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
             ))}
-          </Accordion>
+          </div>
         </section>
-      </div>
+      )}
     </div>
   );
 }
 
-function SectionTitle({ title, subtitle }: { title: string; subtitle?: string }) {
+/** The FAQ is the last block of a product page, set apart from everything above it by a divider. */
+export function ProductFaq({ product, lang }: { product: ProductPageData; lang: Lang }) {
+  const t = getDict(lang);
+  return (
+      <section aria-labelledby="faq-title" className="border-t pt-12">
+      <SectionTitle title={t.product.faqTitle} id="faq-title" />
+      <Accordion type="single" collapsible className="mx-auto max-w-3xl rounded-2xl border px-4">
+        {t.product.faqs(product.name, site.warrantyMonths, site.returnDays).map((faq) => (
+          <AccordionItem key={faq.q} value={faq.q}>
+            <AccordionTrigger>{faq.q}</AccordionTrigger>
+            <AccordionContent className="text-muted-foreground">{faq.a}</AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
+    </section>
+  );
+}
+
+function SectionTitle({ title, subtitle, id }: { title: string; subtitle?: string; id?: string }) {
   return (
     <div className="mb-5">
-      <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
+      <h2 id={id} className="text-2xl font-bold tracking-tight">{title}</h2>
       {subtitle && <p className="mt-1 text-muted-foreground">{subtitle}</p>}
     </div>
   );

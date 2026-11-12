@@ -1,6 +1,7 @@
 import { Footer } from "@/components/layout/footer";
 import { CatalogueNotice } from "@/components/layout/catalogue-notice";
 import { Header } from "@/components/layout/header";
+import { LiveRefresh } from "@/components/layout/live-refresh";
 import { Suspense } from "react";
 import { isLang } from "@/i18n/config";
 
@@ -10,6 +11,7 @@ export default async function ShopLayout({ children, params }: LayoutProps<"/[la
   return (
     <>
       <Header lang={lang} />
+      <LiveRefresh />
       <Suspense>
         <CatalogueNotice lang={lang} />
       </Suspense>

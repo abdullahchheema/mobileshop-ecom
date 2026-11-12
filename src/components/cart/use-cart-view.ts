@@ -50,5 +50,13 @@ export function useCartView() {
     return () => controller.abort();
   }, [load, hydrated]);
 
+  // The catalogue changed while the cart is open (LiveRefresh): price it again.
+  useEffect(() => {
+    if (!hydrated) return;
+    const again = () => void load();
+    window.addEventListener("catalogue-changed", again);
+    return () => window.removeEventListener("catalogue-changed", again);
+  }, [load, hydrated]);
+
   return { ...state, items, reload: () => load() };
 }

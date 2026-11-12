@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   defaultSelection,
   findVariant,
+  nearestBuyable,
   type OfferSummary,
   type Picker,
   pickerStates,
@@ -99,20 +100,23 @@ describe("selectValue", () => {
     expect(selectValue(pickers, variants, current, "pta", "non-pta")).toEqual(sel("fair", "128", "non-pta", "black"));
   });
 
-  it("moves to the closest buyable variant, keeping earlier pickers first", () => {
-    // fair/256 is sold out, so condition must change; color black is kept (good-256-pta-black)
-    // even though good-256-pta-blue is cheaper.
-    expect(selectValue(pickers, variants, current, "sto", "256")).toEqual(sel("good", "256", "pta", "black"));
+  it("never silently moves to another variant: only the chosen option changes", () => {
+    const next = selectValue(pickers, variants, current, "sto", "256");
+    expect(next).toEqual(sel("fair", "256", "pta", "black"));
+    expect(findVariant(variants, next)?.offers ?? []).toEqual([]); // fair/256 is sold out: the page says so
   });
-
   it("lets an out-of-stock value be chosen (the page shows it as out of stock)", () => {
     const noBlue = variants.map((v) => (v.valueIds.includes("blue") ? { ...v, offers: [] } : v));
     const next = selectValue(pickers, noBlue, current, "col", "blue");
     expect(next.col).toBe("blue");
   });
-  it("ignores a value no variant has", () => {
+  it("nearestBuyable (the explicit 'show an available option' action) keeps earlier pickers first", () => {
+    // fair/256 is sold out, so condition must change; color black is kept (good-256-pta-black) even though good-256-pta-blue is cheaper.
+    expect(nearestBuyable(pickers, variants, current, "sto", "256")).toEqual(sel("good", "256", "pta", "black"));
+  });
+  it("nearestBuyable ignores a value no variant has", () => {
     const none = variants.filter((v) => !v.valueIds.includes("blue"));
-    expect(selectValue(pickers, none, current, "col", "blue")).toEqual(current);
+    expect(nearestBuyable(pickers, none, current, "col", "blue")).toEqual(current);
   });
 });
 
@@ -129,10 +133,10 @@ describe("URL params", () => {
     expect(selectionFromParams(pickers, variants, { storage: "256" })).toEqual(sel("good", "256", "pta", "blue"));
   });
 
-  it("repairs an unbuyable or unknown combination from the URL", () => {
-    expect(selectionFromParams(pickers, variants, { condition: "fair", storage: "256", color: "nope" })).toEqual(
-      sel("good", "256", "pta", "black"),
-    );
+  it("keeps exactly what a link asks for, even when that combination is out of stock", () => {
+    const picked = selectionFromParams(pickers, variants, { condition: "fair", storage: "256", color: "nope" });
+    expect([picked.cond, picked.sto]).toEqual(["fair", "256"]);            // honoured, not swapped for something buyable
+    expect(findVariant(variants, picked)?.offers ?? []).toEqual([]);        // and shown as out of stock
   });
 });
 

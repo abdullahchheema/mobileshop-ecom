@@ -37,7 +37,7 @@ export function ProductGallery({
   return (
     <div className="space-y-3">
       <div className="relative aspect-square overflow-hidden rounded-3xl bg-secondary">
-        <Image src={currentUrl} alt={current.alt || name} fill priority sizes="(min-width: 1024px) 50vw, 100vw" className="object-contain p-6" />
+        <Image key={currentUrl} src={currentUrl} alt={current.alt || name} fill priority sizes="(min-width: 1024px) 50vw, 100vw" className="animate-in fade-in-0 object-contain p-6 duration-300" />
       </div>
       {images.length > 1 && (
         <div className="flex gap-2 overflow-x-auto scrollbar-none">
@@ -49,7 +49,7 @@ export function ProductGallery({
               aria-current={src === currentUrl}
               onClick={() => setIndex(i)}
               className={cn(
-                "relative size-16 shrink-0 overflow-hidden rounded-xl border-2 bg-secondary",
+                "relative size-16 shrink-0 overflow-hidden rounded-xl border-2 bg-secondary transition-all duration-200 hover:scale-105 active:scale-95",
                 src === currentUrl ? "border-primary" : "border-transparent hover:border-foreground/20",
               )}
             >

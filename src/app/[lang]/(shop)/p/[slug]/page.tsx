@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/listing/breadcrumbs";
-import { ProductDetails } from "@/components/product/product-details";
+import { ProductDetails, ProductFaq } from "@/components/product/product-details";
 import { ProductPurchase } from "@/components/product/product-purchase";
 import { ProductRail } from "@/components/product/product-rail";
 import { categoryLabel, type Dict, getDict, langOf } from "@/i18n";
@@ -77,6 +77,7 @@ async function ProductContent({ params, searchParams }: PageProps<"/[lang]/p/[sl
         products={similar}
         href={`/l/${product.category.slug}`}
       />
+      <ProductFaq product={product} lang={lang} />
     </div>
   );
 }
