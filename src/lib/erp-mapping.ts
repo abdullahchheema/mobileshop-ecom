@@ -273,7 +273,7 @@ export function productPage(ix: Index, slug: string) {
     });
   for (const d of defs) {
     const labels = [...new Map(optionRows.filter((r) => d.labelOf(r)).map((r) => [slugify(d.labelOf(r)), d.labelOf(r)])).entries()];
-    if (labels.length < 2) continue;
+    if (labels.length < 1) continue;
     if (d.type === "STORAGE") labels.sort((a, b) => gigabytes(a[1]) - gigabytes(b[1]));
     pickers.push({
       id: d.prefix,

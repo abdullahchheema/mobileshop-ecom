@@ -31,6 +31,7 @@ export function buildOrderPayload(o: OrderInput) {
       ...(o.customer.email && { email: o.customer.email }),
       address,
       city: o.customer.city,
+      province: provinceLabel(o.customer.province),      // the ERP prices delivery by province
     },
     payment_method: o.paymentMethod ?? "Cash on Delivery",
     ...(o.paymentReference && { payment_reference: o.paymentReference }),
@@ -103,7 +104,9 @@ export async function placeErpOrder(order: OrderInput, doFetch: typeof fetch = f
 
 export type OrderStatus = {
   ref: string;
-  status: string; // New | Dispatched | Delivered | Cancelled
+  status: string; // New | Dispatched | Delivered | Cancelled (the ERP's working status)
+  /** The order's main status: Unconfirmed (we have not called you yet), Confirmed, Fulfilled, Cancelled or Returned. */
+  orderStatus: string | null;
   /** The step inside the status: Confirmed, Processing, Ready for Dispatch, In Transit, Return Requested, Returned, Refunded… */
   stage: string | null;
   paymentStatus: string | null;
@@ -129,6 +132,7 @@ export async function getErpOrder(ref: string): Promise<OrderStatus | null> {
   return {
     ref: String(b.external_ref ?? ref),
     status: String(b.status ?? "New"),
+    orderStatus: b.order_status ? String(b.order_status) : null,
     stage: b.stage ? String(b.stage) : null,
     paymentStatus: b.payment_status ? String(b.payment_status) : null,
     courier: b.courier ? String(b.courier) : null,

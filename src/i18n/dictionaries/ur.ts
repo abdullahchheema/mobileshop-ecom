@@ -359,8 +359,12 @@ export const ur: Dict = {
     placed: (date) => `آرڈر کی تاریخ ${date}`,
     statuses: {
       New: "آرڈر موصول ہو گیا",
+      Unconfirmed: "آرڈر موصول ہو گیا۔ ہم تصدیق کے لیے آپ کو کال کریں گے",
+      Confirmed: "تصدیق شدہ",
+      Fulfilled: "مکمل",
       Dispatched: "راستے میں ہے",
       Delivered: "ڈیلیور ہو گیا",
+      Returned: "دکان کو واپس",
       Cancelled: "منسوخ",
     },
     payment: "ادائیگی",

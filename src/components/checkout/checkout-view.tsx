@@ -13,7 +13,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { clearCart, rememberOrder } from "@/lib/cart-store";
 import { CITIES, PROVINCES } from "@/lib/pakistan";
-import { isPrepaid, PAYMENT_METHODS, type PaymentMethod } from "@/lib/payment";
+import { isPrepaid, type PaymentMethod } from "@/lib/payment";
+import { useStoreConfig } from "@/components/store-config";
+import { deliveryFee } from "@/lib/store-config";
+import { provinceLabel } from "@/lib/pakistan";
 import { formatPkr } from "@/lib/site";
 
 type Errors = Partial<Record<string, string[]>>;
@@ -49,6 +52,7 @@ export function CheckoutView() {
   const [errors, setErrors] = useState<Errors>({});
   const [placing, setPlacing] = useState(false);
   const [method, setMethod] = useState<PaymentMethod>("Cash on Delivery");
+  const config = useStoreConfig();
   const cityList = useId();
   // Set once the order exists: the cart is emptied right after, and that must not bounce the customer back to the cart.
   const orderPlaced = useRef(false);
@@ -61,7 +65,11 @@ export function CheckoutView() {
   if (loading && !cart) return <div className="h-96 animate-pulse rounded-2xl bg-secondary" />;
   if (failed && !cart) return <p className="rounded-2xl border border-destructive/40 bg-destructive/5 p-6 text-sm text-destructive">{t.checkout.unavailable}</p>;
   if (!cart || cart.lines.length === 0) return null;
-  const total = cart.totals.total;
+  const shipping = deliveryFee(config, cart.totals.subtotal, province ? provinceLabel(province) : undefined);
+  const totals = { ...cart.totals, shipping, total: cart.totals.subtotal + shipping };
+  const total = totals.total;
+  const offered = config.paymentMethods;
+  const accounts = offered.find((m) => m.method === method)?.accounts ?? [];
 
   async function placeOrder(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -183,7 +191,7 @@ export function CheckoutView() {
             {t.checkout.payment}
           </h2>
           <div role="radiogroup" aria-label={t.checkout.payment} className="space-y-2">
-            {PAYMENT_METHODS.map((m) => (
+            {offered.map(({ method: m }) => (
               <label
                 key={m}
                 className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-4 ${method === m ? "border-primary bg-accent ring-2 ring-primary/20" : ""}`}
@@ -198,6 +206,19 @@ export function CheckoutView() {
           </div>
           {isPrepaid(method) && (
             <div className="mt-3 space-y-3">
+              {accounts.length > 0 && (
+                <ul className="space-y-2">
+                  {accounts.map((a) => (
+                    <li key={`${a.title}-${a.accountNumber}`} className="rounded-xl border bg-card px-4 py-3 text-sm">
+                      <p className="font-semibold">{a.title}</p>
+                      {a.bankName && <p className="text-muted-foreground">{a.bankName}</p>}
+                      {a.accountNumber && <p className="font-mono">{a.accountNumber}</p>}
+                      {a.iban && <p className="font-mono text-xs text-muted-foreground">{a.iban}</p>}
+                      {a.instructions && <p className="mt-1 text-muted-foreground">{a.instructions}</p>}
+                    </li>
+                  ))}
+                </ul>
+              )}
               <p className="rounded-xl bg-secondary px-4 py-3 text-sm">{t.checkout.prepaidNote}</p>
               <Field label={t.checkout.paymentReference} name="paymentReference" error={errors.paymentReference} maxLength={80} />
             </div>
@@ -232,7 +253,7 @@ export function CheckoutView() {
       <aside className="lg:sticky lg:top-36 lg:self-start">
         <div className="rounded-2xl border p-5">
           <h2 className="mb-4 font-bold">{t.checkout.summary}</h2>
-          <OrderSummaryRows t={t} {...cart.totals} />
+          <OrderSummaryRows t={t} {...totals} />
         </div>
       </aside>
     </div>

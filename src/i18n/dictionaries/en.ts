@@ -355,8 +355,12 @@ export const en = {
     placed: (date: string) => `Placed ${date}`,
     statuses: {
       New: "Order received",
+      Unconfirmed: "Order received. We will call you to confirm it",
+      Confirmed: "Confirmed",
+      Fulfilled: "Fulfilled",
       Dispatched: "On its way",
       Delivered: "Delivered",
+      Returned: "Returned to the shop",
       Cancelled: "Cancelled",
     } as Record<string, string>,
     payment: "Payment",

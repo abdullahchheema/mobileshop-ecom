@@ -1,6 +1,9 @@
 import { revalidateTag } from "next/cache";
 import { z } from "zod";
 import { getVariantsByKey } from "@/lib/catalog";
+import { getStoreConfig } from "@/lib/erp-config";
+import { deliveryFee } from "@/lib/store-config";
+import { provinceLabel } from "@/lib/pakistan";
 import { buildCartView, clampQuantity, MAX_LINES } from "@/lib/cart";
 import { ErpOrderConfigError, placeErpOrder } from "@/lib/erp-orders";
 import { apiError } from "@/lib/http";
@@ -49,7 +52,10 @@ export async function POST(request: Request) {
 
   const items = input.items.map((i) => ({ key: i.key, qty: clampQuantity(i.qty) }));
   const current = await getVariantsByKey(items.map((i) => i.key));
-  const cart = buildCartView(items, current);
+  // Delivery is priced by the ERP's settings, including a province's own fee, and the payment method must be one the shop offers today.
+  const config = await getStoreConfig();
+  if (!config.paymentMethods.some((m) => m.method === input.paymentMethod)) return apiError(409, "CONFLICT", "That payment method is not available right now. Please choose another.");
+  const cart = buildCartView(items, current, (subtotal) => deliveryFee(config, subtotal, provinceLabel(input.province)));
   if (cart.hasUnavailable) return apiError(409, "OUT_OF_STOCK", "Some items are no longer available. Please review your cart.");
   if (Math.abs(cart.totals.total - input.expectedTotal) > 0.01) return apiError(409, "PRICE_CHANGED", "The price changed. Please review your cart and confirm again.");
 

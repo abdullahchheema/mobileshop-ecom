@@ -2,6 +2,9 @@
 // everything shown or sent to the ERP (price, stock, name) is looked up fresh from the ERP's catalogue views.
 import { shipmentFee } from "@/lib/shipping";
 
+/** Delivery for a subtotal. The default is the store's usual fee; the server passes the ERP's configured pricing. */
+export type ShippingFn = (subtotal: number) => number;
+
 export const MAX_PER_LINE = 50; // capped again by the ERP's stock for each variant
 export const MAX_LINES = 40; // the ERP accepts up to 40 lines per order
 
@@ -49,7 +52,7 @@ export type CartView = {
 
 export const clampQuantity = (qty: number) => Math.min(MAX_PER_LINE, Math.max(1, Math.floor(Number.isFinite(qty) ? qty : 1)));
 
-export function buildCartView(items: CartItem[], current: Map<string, CurrentVariant>): CartView {
+export function buildCartView(items: CartItem[], current: Map<string, CurrentVariant>, shippingFor: ShippingFn = (n) => (n > 0 ? shipmentFee(n) : 0)): CartView {
   const lines: CartLineView[] = items.map(({ key, qty }) => {
     const v = current.get(key);
     const quantity = clampQuantity(qty);
@@ -73,7 +76,7 @@ export function buildCartView(items: CartItem[], current: Map<string, CurrentVar
   });
   const buyable = lines.filter((l) => l.available);
   const subtotal = buyable.reduce((sum, l) => sum + l.price * l.quantity, 0);
-  const shipping = subtotal > 0 ? shipmentFee(subtotal) : 0;
+  const shipping = subtotal > 0 ? shippingFor(subtotal) : 0;
   return {
     lines,
     itemCount: lines.reduce((n, l) => n + l.quantity, 0),

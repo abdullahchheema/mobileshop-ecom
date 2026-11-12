@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { getVariantsByKey } from "@/lib/catalog";
+import { getStoreConfig } from "@/lib/erp-config";
+import { deliveryFee } from "@/lib/store-config";
 import { buildCartView, MAX_LINES } from "@/lib/cart";
 import { apiError } from "@/lib/http";
 
@@ -12,5 +14,6 @@ export async function POST(request: Request) {
   const parsed = body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError(400, "INVALID", "Invalid cart.");
   const current = await getVariantsByKey(parsed.data.items.map((i) => i.key));
-  return Response.json({ cart: buildCartView(parsed.data.items, current) });
+  const config = await getStoreConfig();
+  return Response.json({ cart: buildCartView(parsed.data.items, current, (subtotal) => deliveryFee(config, subtotal)) });
 }

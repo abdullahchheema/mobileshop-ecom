@@ -112,13 +112,16 @@ describe("navigation and listing", () => {
 describe("product page", () => {
   const page = productPage(ix, "iphone-11")!;
 
-  it("makes pickers only for real choices, with the right types", () => {
+  it("shows every attribute the variants have, even when there is only one value (a single phone still shows its storage, colour, condition…)", () => {
     expect(page.pickers.map((p) => [p.type, p.key, p.values.map((x) => x.label)])).toEqual([
       ["STORAGE", "storage", ["64GB", "128GB"]],
       ["COLOR", "color", ["Black", "White"]],
       ["CONDITION", "condition", ["Good", "Very Good", "Excellent"]],
       ["SIM", "pta-status", ["PTA", "Non-PTA"]],
-    ]); // "Type" is not offered: every phone is Used
+      ["OTHER", "type", ["Used"]],
+    ]);
+    const single = productPage(ix, "airpods-2")!;                       // one product, one variant: its one colour is still shown
+    expect(single.pickers.map((p) => [p.type, p.values.map((x) => x.label)])).toEqual([["COLOR", ["White"]], ["OTHER", ["Used"]]]);
   });
 
   it("maps each ERP variant to one buyable offer with its price, stock and warranty", () => {

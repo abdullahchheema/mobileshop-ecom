@@ -72,10 +72,13 @@ export function OrderTracker({ refNo, justPlaced }: { refNo: string; justPlaced:
 
 function OrderDetails({ order, justPlaced }: { order: OrderStatus; justPlaced: boolean }) {
   const { t } = useI18n();
+  const main = order.orderStatus ?? order.status;
   const cancelled = order.status === "Cancelled";
+  const confirmed = main !== "Unconfirmed" && main !== "New";
   const steps = [
     { label: t.track.statuses.New, done: true },
-    { label: t.track.statuses.Dispatched, done: ["Dispatched", "Delivered"].includes(order.status) },
+    { label: t.track.statuses.Confirmed, done: confirmed },
+    { label: t.track.statuses.Dispatched, done: ["Dispatched", "Delivered", "Returned"].includes(order.status) },
     { label: t.track.statuses.Delivered, done: order.status === "Delivered" },
   ];
   return (
@@ -89,17 +92,17 @@ function OrderDetails({ order, justPlaced }: { order: OrderStatus; justPlaced: b
             {order.placedOn && <p className="mt-1 text-sm text-muted-foreground">{t.track.placed(date(order.placedOn))}</p>}
           </div>
           <span className={`rounded-full px-3 py-1 text-sm font-semibold ${cancelled ? "bg-destructive/10 text-destructive" : "bg-mint text-savings"}`}>
-            {t.track.statuses[order.status] ?? order.status}
+            {t.track.statuses[main] ?? main}
           </span>
           {order.stage && order.stage !== order.status && <p className="w-full text-sm text-muted-foreground">{order.stage}</p>}
         </div>
 
         {!cancelled && (
-          <ol className="mt-6 grid grid-cols-3 gap-2 text-center text-xs">
+          <ol className="mt-6 grid grid-cols-4 gap-2 text-center text-xs">
             {steps.map((s, i) => (
               <li key={s.label} className="space-y-1.5">
                 <span className={`mx-auto flex size-9 items-center justify-center rounded-full ${s.done ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
-                  {i === 0 ? <PackageIcon className="size-4" /> : i === 1 ? <TruckIcon className="size-4" /> : <CheckCircle2Icon className="size-4" />}
+                  {i === 0 ? <PackageIcon className="size-4" /> : i === 1 ? <CheckCircle2Icon className="size-4" /> : i === 2 ? <TruckIcon className="size-4" /> : <CheckCircle2Icon className="size-4" />}
                 </span>
                 <span className={s.done ? "font-semibold" : "text-muted-foreground"}>{s.label}</span>
               </li>

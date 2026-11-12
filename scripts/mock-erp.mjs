@@ -102,6 +102,11 @@ http.createServer(async (req, res) => {
     const part = rows.slice(from, to + 1);
     return json(res, 200, part, { "Content-Range": `${from}-${from + Math.max(part.length - 1, 0)}/${rows.length}` });
   }
+  if (url.pathname === "/api/online/config/") {
+    if (req.headers["x-api-key"] !== KEY) return json(res, 401, { error: "Invalid or missing API key." });
+    return json(res, 200, { delivery: { fee: "250.00", free_from: "30000.00", provinces: [{ province: "Sindh", fee: "400.00" }] },
+      payment_methods: [{ method: "Cash on Delivery", accounts: [] }, { method: "Easypaisa", accounts: [{ title: "Trendz Mobile", bank_name: "", account_number: "0300 1234567", iban: "", instructions: "Send a screenshot on WhatsApp" }] }, { method: "Bank Transfer", accounts: [{ title: "Trendz Mobile", bank_name: "Meezan Bank", account_number: "0123456789", iban: "PK00MEZN0000000123456789", instructions: "" }] }] });
+  }
   if (url.pathname.startsWith("/api/online/orders")) {
     if (req.headers["x-api-key"] !== KEY) return json(res, 401, { error: "Invalid or missing API key." });
     if (req.method === "POST" && url.pathname === "/api/online/orders/") { const r = placeOrder(await readBody(req)); return json(res, r.status, r.body); }

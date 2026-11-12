@@ -4,7 +4,7 @@ import { TriangleAlertIcon } from "lucide-react";
 import { CartLineControls } from "@/components/cart/cart-line-controls";
 import { DeviceArt } from "@/components/product/device-art";
 import type { CartView } from "@/lib/cart";
-import { FREE_SHIPPING_FROM } from "@/lib/shipping";
+import { useStoreConfig } from "@/components/store-config";
 import { type Dict, getDict } from "@/i18n";
 import { formatPkr } from "@/lib/site";
 
@@ -53,6 +53,7 @@ export function CartLines({ cart, t, editable = true }: { cart: CartView; t: Dic
 }
 
 export function OrderSummaryRows({ t = getDict("en"), subtotal, shipping, total }: { t?: Dict; subtotal: number; shipping: number; total: number }) {
+  const { delivery } = useStoreConfig();
   return (
     <dl className="space-y-2 text-sm">
       <div className="flex justify-between">
@@ -67,7 +68,7 @@ export function OrderSummaryRows({ t = getDict("en"), subtotal, shipping, total 
         <dt>{t.common.total}</dt>
         <dd>{formatPkr(total)}</dd>
       </div>
-      <p className="pt-1 text-xs text-muted-foreground">{t.cart.freeFrom(formatPkr(FREE_SHIPPING_FROM))}</p>
+      {delivery.freeFrom !== null && <p className="pt-1 text-xs text-muted-foreground">{t.cart.freeFrom(formatPkr(delivery.freeFrom))}</p>}
     </dl>
   );
 }
