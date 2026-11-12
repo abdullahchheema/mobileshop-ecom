@@ -5,7 +5,7 @@ import type { Picker, PickerType, VariantSummary } from "@/lib/pricing";
 import { savingsPercent } from "@/lib/pricing";
 import { site } from "@/lib/site";
 import { slugify } from "@/lib/slug";
-import type { Catalogue, FamilyRow, ImageRow, ListingRow, VariantRow } from "@/lib/erp-types";
+import type { Catalogue, FamilyRow, ListingRow, VariantRow } from "@/lib/erp-types";
 
 export const num = (v: number | string | null | undefined) => {
   const n = typeof v === "number" ? v : v === null || v === undefined || v === "" ? NaN : Number(v);
@@ -45,10 +45,13 @@ export function kindOf(category: string | null | undefined, isPhone: boolean) {
   return "smartphone";
 }
 
+/** Warranty in months; 0 days means no warranty (never the store's usual promise). */
 export const warrantyMonths = (days: number | string | null | undefined) => {
   const d = num(days);
-  return d > 0 ? Math.max(1, Math.round(d / 30)) : site.warrantyMonths;
+  return d > 0 ? Math.max(1, Math.round(d / 30)) : 0;
 };
+
+const optionalNumber = (v: number | string | null | undefined) => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
 
 const gigabytes = (label: string) => Number.parseFloat(label) * (/tb/i.test(label) ? 1024 : 1) || 0;
 
@@ -246,25 +249,50 @@ export function productPage(ix: Index, slug: string) {
     });
   }
 
-  const variants: VariantSummary[] = rows.map((r) => ({
-    id: variantKey(r.variant),
-    valueIds: idsFor(r),
-    offers: [
-      {
-        id: variantKey(r.variant),
-        price: num(r.variant.price),
-        stock: num(r.variant.quantity),
-        warrantyMonths: warrantyMonths(r.variant.warranty_days),
-        seller: { name: site.name, slug: "store", city: "" },
-      },
-    ],
-  }));
+  const shopsByKey = new Map<string, { name: string; quantity: number }[]>();
+  for (const sRow of ix.cat.stock ?? []) {
+    if (num(sRow.quantity) <= 0) continue;
+    const key = variantKey({ product_id: sRow.product_id, condition: sRow.condition, pta_status: sRow.pta_status, device_type: sRow.device_type });
+    shopsByKey.set(key, [...(shopsByKey.get(key) ?? []), { name: text(sRow.shop_name) || "Shop", quantity: num(sRow.quantity) }]);
+  }
 
+  const variants: VariantSummary[] = rows.map((r) => {
+    const compare = num(r.variant.compare_price);
+    const grade = optionalNumber(r.variant.grade);
+    return {
+      id: variantKey(r.variant),
+      productId: String(r.variant.product_id),
+      valueIds: idsFor(r),
+      offers: [
+        {
+          id: variantKey(r.variant),
+          price: num(r.variant.price),
+          comparePrice: compare > num(r.variant.price) ? compare : null,
+          stock: num(r.variant.quantity),
+          warrantyMonths: warrantyMonths(r.variant.warranty_days),
+          seller: { name: site.name, slug: "store", city: "" },
+          grade,
+          batteryHealth: optionalNumber(r.variant.battery_health),
+          ptaStatus: text(r.variant.pta_status) || null,
+          shops: shopsByKey.get(variantKey(r.variant)),
+        },
+      ],
+    };
+  });
+
+  // Photos with no variant belong to the whole page; a photo with a product belongs to that colour/storage only.
   const imgs = ix.cat.images
     .filter((i) => i.family_slug === slug)
     .sort((a, b) => num(a.position) - num(b.position));
-  const images = [...imgs.filter((i) => i.variant_product_id === null), ...imgs.filter((i) => i.variant_product_id !== null)].map((i: ImageRow) => i.url);
-  if (images.length === 0 && family.cover_url) images.push(family.cover_url);
+  const photo = (i: { url: string; alt: string | null }) => ({ url: i.url, alt: i.alt ?? "" });
+  const images = imgs.filter((i) => i.variant_product_id === null || i.variant_product_id === undefined).map(photo);
+  const imagesByProduct: Record<string, { url: string; alt: string }[]> = {};
+  for (const i of imgs) {
+    const owner = i.variant_product_id ?? null;
+    if (owner === null) continue;
+    (imagesByProduct[String(owner)] ??= []).push(photo(i));
+  }
+  if (images.length === 0 && Object.keys(imagesByProduct).length === 0 && family.cover_url) images.push({ url: family.cover_url, alt: "" });
 
   const cheapest = rows[0];
   const compare = cheapest ? num(cheapest.variant.compare_price) : 0;
@@ -280,6 +308,7 @@ export function productPage(ix: Index, slug: string) {
     category: { name: category, slug: slugify(category), icon: kindOf(category, family.is_phone), parent: null as null | { name: string; slug: string; icon: string } },
     specs: {} as Record<string, string>,
     images,
+    imagesByProduct,
     kind: kindOf(category, family.is_phone),
     pickers,
     variants,

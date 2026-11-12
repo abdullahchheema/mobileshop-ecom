@@ -63,11 +63,26 @@ export type ImageRow = {
   position: number | string | null;
 };
 
+/** web_variant_stock: the same variants split by shop. */
+export type VariantStockRow = {
+  product_id: string | number;
+  condition: string | null;
+  pta_status: string | null;
+  device_type: string | null;
+  price: number | string;
+  shop_id: string | number;
+  shop_name: string | null;
+  quantity: number | string;
+};
+
 export type Catalogue = {
   families: FamilyRow[];
   listings: ListingRow[];
   variants: VariantRow[];
   images: ImageRow[];
+  stock: VariantStockRow[];
+  /** True when the ERP could not be read: show a friendly notice, not an empty shop. */
+  unavailable?: boolean;
 };
 
 /** What a cart line needs to be sent to the ERP: exactly the variant's identity, copied from its web_variants row. */

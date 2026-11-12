@@ -16,6 +16,7 @@ const v = (id: number, condition: string | null, pta: string | null, price: numb
 });
 
 const cat: Catalogue = {
+  stock: [],
   families: [family("iphone-11", "iPhone 11", "Phones"), family("airpods-2", "AirPods 2", "Accessories", { brand: "Apple", is_phone: false }), family("pixel-6", "Pixel 6", "Phones", { brand: "Google" })],
   listings: [
     l(1, "iphone-11", "64GB", "Black"), l(2, "iphone-11", "128GB", "Black"), l(3, "iphone-11", "128GB", "White"),
@@ -46,11 +47,11 @@ describe("helpers", () => {
     expect(isPtaApproved("Not recorded")).toBe(false);
     expect(isPtaApproved(null)).toBe(false);
   });
-  it("turns warranty days into months, defaulting to the store promise", () => {
+  it("turns warranty days into months, with 0 meaning no warranty", () => {
     expect(warrantyMonths(365)).toBe(12);
     expect(warrantyMonths(180)).toBe(6);
-    expect(warrantyMonths(0)).toBe(12);
-    expect(warrantyMonths(null)).toBe(12);
+    expect(warrantyMonths(0)).toBe(0);
+    expect(warrantyMonths(null)).toBe(0);
   });
   it("builds a stable variant key", () => {
     expect(variantKey({ product_id: 2, condition: "Good", pta_status: "Non-PTA", device_type: "Used" })).toBe("2|Good|Non-PTA|Used");
@@ -119,7 +120,7 @@ describe("product page", () => {
     const first = page.variants[0];
     expect(first.offers).toHaveLength(1);
     expect(first.offers[0]).toMatchObject({ id: "1|Good|PTA|Used", price: 39500, stock: 3, warrantyMonths: 12 });
-    expect(page.variants.find((x) => x.id === "3|Excellent|PTA|Used")?.offers[0].warrantyMonths).toBe(12);
+    expect(page.variants.find((x) => x.id === "3|Excellent|PTA|Used")?.offers[0].warrantyMonths).toBe(0);
     expect(page.variants.map((x) => x.offers[0].price)).toEqual([39500, 44000, 48000, 55000]);
   });
 
@@ -130,7 +131,8 @@ describe("product page", () => {
   });
 
   it("puts page-wide photos first, then variant photos, and shows the was-price", () => {
-    expect(page.images).toEqual(["https://img.test/cover.jpg", "https://img.test/black128.jpg"]);
+    expect(page.images).toEqual([{ url: "https://img.test/cover.jpg", alt: "" }]);
+    expect(page.imagesByProduct["2"]).toEqual([{ url: "https://img.test/black128.jpg", alt: "" }]);
     expect(page.newPrice).toBe(60000);
     expect(page.category).toMatchObject({ name: "Phones", slug: "phones" });
     expect(page.brand).toEqual({ name: "Apple", slug: "apple" });

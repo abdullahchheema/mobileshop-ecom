@@ -1,5 +1,7 @@
 import { Footer } from "@/components/layout/footer";
+import { CatalogueNotice } from "@/components/layout/catalogue-notice";
 import { Header } from "@/components/layout/header";
+import { Suspense } from "react";
 import { isLang } from "@/i18n/config";
 
 export default async function ShopLayout({ children, params }: LayoutProps<"/[lang]">) {
@@ -8,6 +10,9 @@ export default async function ShopLayout({ children, params }: LayoutProps<"/[la
   return (
     <>
       <Header lang={lang} />
+      <Suspense>
+        <CatalogueNotice lang={lang} />
+      </Suspense>
       <main className="flex-1 bg-surface">{children}</main>
       <Footer lang={lang} />
     </>

@@ -11,6 +11,10 @@ export const ur: Dict = {
       `تصدیق شدہ سیلرز سے ری فربشڈ آئی فون، سام سنگ گلیکسی، میک بُک اور بہت کچھ خریدیں۔ ${months} ماہ کی وارنٹی، پورے پاکستان میں کیش آن ڈیلیوری۔`,
   },
   common: {
+    gradeChip: (g) => `گریڈ ${g}/10`,
+    batteryChip: (b) => `بیٹری ${b}%`,
+    availableAt: (list) => `دستیاب: ${list}`,
+    catalogueUnavailable: "ہمارا کیٹلاگ فی الحال دستیاب نہیں۔ براہ کرم چند منٹ بعد دوبارہ کوشش کریں۔",
     home: "ہوم",
     from: "شروع",
     fromPrice: (price) => `${price} سے شروع`,
@@ -31,7 +35,7 @@ export const ur: Dict = {
     offers: (n) => `${n} آفرز`,
     products: (n) => `${n} پروڈکٹس`,
     items: (n) => `${n} آئٹمز`,
-    monthWarranty: (n) => `${n} ماہ کی وارنٹی`,
+    monthWarranty: (n) => (n > 0 ? `${n} ماہ کی وارنٹی` : "کوئی وارنٹی نہیں"),
     dayReturns: (n) => `${n} دن میں مفت واپسی`,
   },
   header: {

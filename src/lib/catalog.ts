@@ -31,18 +31,19 @@ async function getCatalogue(): Promise<Catalogue> {
   cacheLife("minutes"); // refreshed about every minute; shorter profiles make Next treat the whole page as dynamic
 
   try {
-    const [families, listings, variants, images] = await Promise.all([
+    const [families, listings, variants, images, stock] = await Promise.all([
       readAll<Catalogue["families"][number]>("web_families"),
       readAll<Catalogue["listings"][number]>("web_listings"),
       readAll<Catalogue["variants"][number]>("web_variants"),
       readAll<Catalogue["images"][number]>("web_images"),
+      readAll<Catalogue["stock"][number]>("web_variant_stock"),
     ]);
-    return { families, listings, variants, images };
+    return { families, listings, variants, images, stock };
   } catch (e) {
     if (e instanceof ErpConfigError) throw e;
-    // The ERP is unreachable: show an empty store for a moment rather than an error page.
+    // The ERP is unreachable: log it here and show a friendly notice (see CatalogueNotice), not an error page.
     console.error("[catalog] could not read the ERP catalogue", e);
-    return { families: [], listings: [], variants: [], images: [] };
+    return { families: [], listings: [], variants: [], images: [], stock: [], unavailable: true };
   }
 }
 
@@ -96,6 +97,11 @@ export async function getSearchSuggestions(q: string) {
     6,
   );
   return items.map(({ slug, name, brand, kind, fromPrice }) => ({ slug, name, brand, kind, fromPrice }));
+}
+
+/** True when the last read of the ERP failed, so pages can say so instead of looking empty. */
+export async function isCatalogueUnavailable() {
+  return Boolean((await getCatalogue()).unavailable);
 }
 
 export async function getBrands() {

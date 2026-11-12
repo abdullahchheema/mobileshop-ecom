@@ -34,20 +34,27 @@ type Props = {
   brand: string;
   releaseYear: number | null;
   kind: string;
-  images: string[];
+  images: { url: string; alt: string }[];
+  imagesByProduct: Record<string, { url: string; alt: string }[]>;
   newPrice: number | null;
   pickers: Picker[];
   variants: VariantSummary[];
   initialSelection: Selection;
 };
 
-export function ProductPurchase({ name, brand, releaseYear, kind, images, newPrice, pickers, variants, initialSelection }: Props) {
+export function ProductPurchase({ name, brand, releaseYear, kind, images, imagesByProduct, newPrice, pickers, variants, initialSelection }: Props) {
   const router = useRouter();
   const { t, href } = useI18n();
   const [selection, setSelection] = useState(initialSelection);
 
   const variant = useMemo(() => findVariant(variants, selection), [variants, selection]);
   const offer = variant?.offers[0] ?? null;
+
+  // The selected colour/storage's own photos first, then the photos shared by the whole page.
+  const photos = useMemo(() => {
+    const own = (variant?.productId && imagesByProduct[variant.productId]) || [];
+    return [...own, ...images];
+  }, [variant, imagesByProduct, images]);
 
   const colorPicker = pickers.find((p) => p.type === "COLOR");
   const colorHex = colorPicker?.values.find((v) => v.id === selection[colorPicker.id])?.colorHex ?? undefined;
@@ -78,7 +85,7 @@ export function ProductPurchase({ name, brand, releaseYear, kind, images, newPri
   return (
     <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
       <div className="lg:sticky lg:top-36 lg:self-start">
-        <ProductGallery name={name} images={images} kind={kind} colorHex={colorHex} />
+        <ProductGallery key={variant?.productId ?? "none"} name={name} images={photos} kind={kind} colorHex={colorHex} />
       </div>
 
       <div className="space-y-6">
@@ -98,6 +105,7 @@ export function ProductPurchase({ name, brand, releaseYear, kind, images, newPri
           {offer ? t.product.addToCart : t.product.unavailableButton}
         </Button>
 
+        {offer && <Facts t={t} offer={offer} />}
         {offer && <Perks t={t} offer={offer} />}
 
         <div className="space-y-6 border-t pt-6">
@@ -158,11 +166,32 @@ function PriceBlock({ t, offer, newPrice }: { t: Dict; offer: OfferSummary | nul
   );
 }
 
+function Facts({ t, offer }: { t: Dict; offer: OfferSummary }) {
+  const chips = [
+    offer.ptaStatus,
+    offer.grade != null ? t.common.gradeChip(offer.grade) : null,
+    offer.batteryHealth != null ? t.common.batteryChip(offer.batteryHealth) : null,
+    t.common.monthWarranty(offer.warrantyMonths),
+  ].filter(Boolean) as string[];
+  const shops = offer.shops?.map((s) => `${s.name} (${s.quantity})`).join(", ");
+  return (
+    <div className="space-y-2">
+      <ul className="flex flex-wrap gap-2">
+        {chips.map((c) => (
+          <li key={c} className="rounded-full border bg-secondary px-3 py-1 text-xs font-medium">
+            {c}
+          </li>
+        ))}
+      </ul>
+      {shops && <p className="text-sm text-muted-foreground">{t.common.availableAt(shops)}</p>}
+    </div>
+  );
+}
+
 function Perks({ t, offer }: { t: Dict; offer: OfferSummary }) {
   const items = [
     { icon: TruckIcon, text: t.product.perks.delivery },
     { icon: BanknoteIcon, text: t.product.perks.payment },
-    { icon: ShieldCheckIcon, text: t.common.monthWarranty(offer.warrantyMonths) },
     { icon: Undo2Icon, text: t.common.dayReturns(site.returnDays) },
   ];
   return (

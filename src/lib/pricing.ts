@@ -17,13 +17,24 @@ export type Picker = {
 export type OfferSummary = {
   id: string;
   price: number;
+  /** The ERP's "was" price, when the variant is discounted. */
+  comparePrice?: number | null;
   stock: number;
+  /** 0 means no warranty. */
   warrantyMonths: number;
   seller: { name: string; slug: string; city: string };
+  /** Condition score out of 10 and battery percentage, when the ERP has them. */
+  grade?: number | null;
+  batteryHealth?: number | null;
+  ptaStatus?: string | null;
+  /** Which shops hold the phones (from web_variant_stock). */
+  shops?: { name: string; quantity: number }[];
 };
 
 export type VariantSummary = {
   id: string;
+  /** The ERP product (colour/storage) this variant belongs to: its own photos show when it is selected. */
+  productId?: string;
   valueIds: string[];
   /** Buyable offers only (active, in stock, approved seller), cheapest first. */
   offers: OfferSummary[];

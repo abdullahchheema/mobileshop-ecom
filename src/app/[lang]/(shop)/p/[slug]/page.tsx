@@ -63,6 +63,7 @@ async function ProductContent({ params, searchParams }: PageProps<"/[lang]/p/[sl
           releaseYear={product.releaseYear}
           kind={product.kind}
           images={product.images}
+          imagesByProduct={product.imagesByProduct}
           newPrice={product.newPrice}
           pickers={product.pickers}
           variants={product.variants}
@@ -101,7 +102,7 @@ function JsonLd({
     brand: { "@type": "Brand", name: product.brand.name },
     description: product.description,
     url: url(`/p/${product.slug}`),
-    ...(product.images[0] && { image: product.images.map((src) => (src.startsWith("http") ? src : `${site.url}${src}`)) }),
+    ...(product.images[0] && { image: product.images.map(({ url: src }) => (src.startsWith("http") ? src : `${site.url}${src}`)) }),
     ...(prices && {
       offers: {
         "@type": "AggregateOffer",

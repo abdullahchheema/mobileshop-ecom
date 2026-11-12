@@ -14,7 +14,7 @@ export function ProductGallery({
   colorHex,
 }: {
   name: string;
-  images: string[];
+  images: { url: string; alt: string }[];
   kind: string;
   colorHex?: string;
 }) {
@@ -33,23 +33,24 @@ export function ProductGallery({
   }
 
   const current = images[Math.min(index, images.length - 1)];
+  const currentUrl = current.url;
   return (
     <div className="space-y-3">
       <div className="relative aspect-square overflow-hidden rounded-3xl bg-secondary">
-        <Image src={current} alt={name} fill priority sizes="(min-width: 1024px) 50vw, 100vw" className="object-contain p-6" />
+        <Image src={currentUrl} alt={current.alt || name} fill priority sizes="(min-width: 1024px) 50vw, 100vw" className="object-contain p-6" />
       </div>
       {images.length > 1 && (
         <div className="flex gap-2 overflow-x-auto scrollbar-none">
-          {images.map((src, i) => (
+          {images.map(({ url: src }, i) => (
             <button
               key={src}
               type="button"
               aria-label={t.product.photo(i + 1)}
-              aria-current={src === current}
+              aria-current={src === currentUrl}
               onClick={() => setIndex(i)}
               className={cn(
                 "relative size-16 shrink-0 overflow-hidden rounded-xl border-2 bg-secondary",
-                src === current ? "border-primary" : "border-transparent hover:border-foreground/20",
+                src === currentUrl ? "border-primary" : "border-transparent hover:border-foreground/20",
               )}
             >
               <Image src={src} alt="" fill sizes="64px" className="object-contain p-1" />

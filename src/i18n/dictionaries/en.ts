@@ -9,6 +9,10 @@ export const en = {
       `Buy refurbished iPhones, Samsung Galaxy, MacBooks and more from verified sellers. ${months}-month warranty, cash on delivery across Pakistan.`,
   },
   common: {
+    gradeChip: (g: number) => `Grade ${g}/10`,
+    batteryChip: (b: number) => `Battery ${b}%`,
+    availableAt: (list: string) => `Available at: ${list}`,
+    catalogueUnavailable: "Our catalogue is temporarily unavailable. Please try again in a few minutes.",
     home: "Home",
     from: "From",
     fromPrice: (price: string) => `from ${price}`,
@@ -29,7 +33,7 @@ export const en = {
     offers: (n: number) => plural(n, "offer", "offers"),
     products: (n: number) => plural(n, "product", "products"),
     items: (n: number) => plural(n, "item", "items"),
-    monthWarranty: (n: number) => `${n}-month warranty`,
+    monthWarranty: (n: number) => (n > 0 ? `${n}-month warranty` : "No warranty"),
     dayReturns: (n: number) => `${n}-day free returns`,
   },
   header: {
