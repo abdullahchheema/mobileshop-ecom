@@ -80,6 +80,7 @@ export async function POST(request: Request) {
       lines: items.map((i) => ({ variant: current.get(i.key)!, quantity: i.qty })),
       deliveryFee: cart.totals.shipping,
       expectedTotal: cart.totals.total,
+      clientIp: ip,
     });
     // The unit is committed in the ERP: drop the cached catalogue so the next visitor (and this one) already sees it gone.
     if (result.ok) revalidateTag("catalogue", { expire: 0 });

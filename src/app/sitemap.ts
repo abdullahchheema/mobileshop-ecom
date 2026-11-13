@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { articles, PAGE_PATH } from "@/content";
 import { LANGS, localizePath } from "@/i18n/config";
 import { getListing, getNavCategories } from "@/lib/catalog";
 import { site } from "@/lib/site";
@@ -19,6 +20,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return [
     entry("/"),
     entry("/deals"),
+    entry("/help"),
+    entry("/journal"),
+    ...Object.values(PAGE_PATH).map(entry),
+    ...articles("en").map((a) => entry(`/journal/${a.slug}`)),
     ...categories.map((c) => entry(`/l/${c.slug}`)),
     ...listing.items.map((p) => entry(`/p/${p.slug}`)),
   ];

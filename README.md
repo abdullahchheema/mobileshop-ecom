@@ -72,4 +72,9 @@ variable is missing (names only are reported). After building, run `npm run chec
   makes Next treat every page as dynamic. Anything per-request must render inside `<Suspense>`.
 - Photos come from the ERP's Supabase Storage host (allowed in `next.config.ts` for `next/image`).
 - English and Urdu text live in `src/i18n/dictionaries`; every key must exist in both.
-- The pages linked from the footer (help, about, journal, trade-in…) are placeholders that were never built.
+- **Footer pages** (help center, shipping, returns, warranty, cash on delivery, trade-in, about, promise, terms, privacy and the tech journal) are
+  written content in `src/content/` (English and Urdu side by side; a test keeps the two in step and checks every link). The numbers they quote
+  (delivery days, refund days) are in `src/lib/policy.ts`; the warranty months, return days and contact details are in `src/lib/site.ts`. The
+  owner should read them once and change anything that does not match how the shop works: `docs/content-notes.md` lists what to check.
+- **Order spam:** this site's own limiter (`src/lib/rate-limit.ts`) counts per server instance, which is weak on a serverless host. The real limit is
+  in the ERP (it counts orders in the shared database); the site passes the customer's address to it as `client_ip`.

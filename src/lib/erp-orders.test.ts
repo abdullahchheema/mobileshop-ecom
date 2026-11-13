@@ -138,6 +138,19 @@ describe("placeErpOrder", () => {
   });
 });
 
+describe("order limits", () => {
+  it("passes the ERP's 429 on in the ERP's own words", () => {
+    expect(classifyPlaceResponse(429, { error: "You already have 3 orders waiting for our confirmation call." }, "r")).toEqual({ ok: false, code: "RATE_LIMITED", message: "You already have 3 orders waiting for our confirmation call.", status: 429 });
+    expect(classifyPlaceResponse(429, null, "r")).toMatchObject({ code: "RATE_LIMITED", status: 429 });
+  });
+  it("sends the customer's address when it is known, and not a placeholder", () => {
+    const base = { ref: "TM-1", customer: { name: "A", phone: "+923001234567", line1: "House 1", city: "Lahore", province: "PUNJAB" }, lines: [], deliveryFee: 0, expectedTotal: 0 };
+    expect(buildOrderPayload({ ...base, clientIp: "203.0.113.5" })).toMatchObject({ client_ip: "203.0.113.5" });
+    expect(buildOrderPayload({ ...base, clientIp: "unknown" })).not.toHaveProperty("client_ip");
+    expect(buildOrderPayload(base)).not.toHaveProperty("client_ip");
+  });
+});
+
 describe("money sent to the ERP", () => {
   // 10% off 99,999 is 89,999.10; three of them is 269,997.30. In binary floating point 89999.1 * 3 is 269997.30000000005, which the ERP
   // refuses ("at most two decimal places"), so every amount is added in paisa and sent as text with two decimals.

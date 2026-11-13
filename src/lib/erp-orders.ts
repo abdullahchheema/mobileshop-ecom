@@ -18,6 +18,8 @@ export type OrderInput = {
   lines: { variant: CurrentVariant; quantity: number }[];
   deliveryFee: number;
   expectedTotal: number;
+  /** The customer's internet address. The ERP counts orders per address in its database, which all copies of this site share (this site's own limiter is per server). */
+  clientIp?: string;
 };
 
 /** The body for POST /api/online/orders/. Pure, so it is easy to test. */
@@ -25,6 +27,7 @@ export function buildOrderPayload(o: OrderInput) {
   const address = [o.customer.line1, o.customer.line2, provinceLabel(o.customer.province)].filter(Boolean).join(", ");
   return {
     external_ref: o.ref,
+    ...(o.clientIp && o.clientIp !== "unknown" && { client_ip: o.clientIp }),
     customer: {
       name: o.customer.name,
       phone: o.customer.phone,
@@ -54,7 +57,7 @@ export function buildOrderPayload(o: OrderInput) {
 
 export type PlaceResult =
   | { ok: true; ref: string; total: number; status: string; created: boolean }
-  | { ok: false; code: "PRICE_CHANGED" | "OUT_OF_STOCK" | "CONFLICT" | "INVALID" | "UNAVAILABLE"; message: string; status: number };
+  | { ok: false; code: "PRICE_CHANGED" | "OUT_OF_STOCK" | "CONFLICT" | "INVALID" | "UNAVAILABLE" | "RATE_LIMITED"; message: string; status: number };
 
 type ErpBody = { error?: string; message?: string; external_ref?: string; total?: number | string; status?: string; created?: boolean };
 
@@ -70,6 +73,8 @@ export function classifyPlaceResponse(status: number, body: ErpBody | null, fall
     const code = /payment method/i.test(message) ? "CONFLICT" : /stock|sold|available|quantity|exist/i.test(message) ? "OUT_OF_STOCK" : /price/i.test(message) ? "PRICE_CHANGED" : "CONFLICT";
     return { ok: false, code, message: message || "Some items changed. Please review your cart.", status };
   }
+  // The ERP refuses a visitor who orders faster than a person would, or who already has orders waiting for the confirmation call. Its words are written for customers.
+  if (status === 429) return { ok: false, code: "RATE_LIMITED", message: message || "Too many orders in a short time. Please wait a little and try again.", status };
   if (status === 400) return { ok: false, code: "INVALID", message: message || "Please check your details and try again.", status };
   // 401 (wrong key / API off), 5xx, anything else: the customer can only try again later.
   return { ok: false, code: "UNAVAILABLE", message: "We couldn't place your order right now. Please try again in a few minutes.", status };

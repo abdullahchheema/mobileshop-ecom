@@ -11,6 +11,7 @@ import { useI18n } from "@/components/i18n/lang-provider";
 import Link from "@/components/i18n/link";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { PaymentAccountCard } from "@/components/checkout/payment-account";
 import { fromPaisa, toPaisa } from "@/lib/cart";
 import { clearCart, rememberOrder } from "@/lib/cart-store";
 import { CITIES, PROVINCES } from "@/lib/pakistan";
@@ -208,14 +209,10 @@ export function CheckoutView() {
           {isPrepaid(method) && (
             <div className="mt-3 space-y-3">
               {accounts.length > 0 && (
-                <ul className="space-y-2">
+                <ul className="space-y-3">
                   {accounts.map((a) => (
-                    <li key={`${a.title}-${a.accountNumber}`} className="rounded-xl border bg-card px-4 py-3 text-sm">
-                      <p className="font-semibold">{a.title}</p>
-                      {a.bankName && <p className="text-muted-foreground">{a.bankName}</p>}
-                      {a.accountNumber && <p className="font-mono">{a.accountNumber}</p>}
-                      {a.iban && <p className="font-mono text-xs text-muted-foreground">{a.iban}</p>}
-                      {a.instructions && <p className="mt-1 text-muted-foreground">{a.instructions}</p>}
+                    <li key={`${a.title}-${a.accountNumber}`}>
+                      <PaymentAccountCard method={method} account={a} total={total} t={t} />
                     </li>
                   ))}
                 </ul>
