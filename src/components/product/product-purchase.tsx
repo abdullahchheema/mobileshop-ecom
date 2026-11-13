@@ -43,10 +43,33 @@ type Props = {
   initialSelection: Selection;
 };
 
-export function ProductPurchase({ name, brand, releaseYear, kind, images, imagesByProduct, newPrice, pickers, variants, initialSelection }: Props) {
+/**
+ * The condition (Fair, Good, …) is not something the customer picks here. Variants that differ only in condition are merged into one choice
+ * that offers the cheapest of them, so every storage, colour and PTA combination stays reachable.
+ */
+function withoutCondition(pickers: Picker[], variants: VariantSummary[]) {
+  const condition = pickers.find((p) => p.type === "CONDITION");
+  if (!condition) return { pickers, variants };
+  const drop = new Set(condition.values.map((v) => v.id));
+  const groups = new Map<string, VariantSummary[]>();
+  for (const v of variants) {
+    const ids = v.valueIds.filter((id) => !drop.has(id));
+    const key = [...ids].sort().join("|");
+    groups.set(key, [...(groups.get(key) ?? []), { ...v, valueIds: ids }]);
+  }
+  const merged = [...groups.values()].map((group) => {
+    const offers = group.flatMap((g) => g.offers).sort((a, b) => a.price - b.price);
+    const best = group.find((g) => g.offers[0] && g.offers[0].id === offers[0]?.id) ?? group[0];
+    return { ...best, offers };
+  });
+  return { pickers: pickers.filter((p) => p.type !== "CONDITION"), variants: merged };
+}
+
+export function ProductPurchase({ name, brand, releaseYear, kind, images, imagesByProduct, newPrice, pickers: allPickers, variants: allVariants, initialSelection }: Props) {
   const router = useRouter();
   const { t, href } = useI18n();
-  const [selection, setSelection] = useState(initialSelection);
+  const { pickers, variants } = useMemo(() => withoutCondition(allPickers, allVariants), [allPickers, allVariants]);
+  const [selection, setSelection] = useState<Selection>(() => Object.fromEntries(Object.entries(initialSelection).filter(([id]) => pickers.some((p) => p.id === id))));
   const [last, setLast] = useState<{ pickerId: string; valueId: string } | null>(null);
   const [added, setAdded] = useState(false);
 
@@ -120,28 +143,7 @@ export function ProductPurchase({ name, brand, releaseYear, kind, images, images
           <p className="mt-1 text-sm text-muted-foreground">{summary.join(" · ")}</p>
         </div>
 
-        <PriceBlock
-          t={t}
-          offer={offer}
-          newPrice={newPrice}
-          suggestion={suggestion}
-          onShowAvailable={() => suggestion && setSelection(suggestion.next)}
-        />
-
-        <Button
-          size="lg"
-          className={cn("hidden h-12 w-full text-base transition-all duration-200 active:scale-[0.98] lg:flex", added && "animate-[added-pop_300ms_ease-out]")}
-          disabled={!offer}
-          onClick={addToCart}
-        >
-          {added ? <CheckIcon data-icon="inline-start" /> : <ShoppingCartIcon data-icon="inline-start" />}
-          {!offer ? t.common.soldOut : added ? t.product.added : t.product.addToCart}
-        </Button>
-
-        {offer && <Facts t={t} offer={offer} />}
-        {offer && <Perks t={t} />}
-
-        <div className="space-y-6 border-t pt-6">
+        <div className="space-y-6">
           {pickers.map((picker) => (
             <PickerGroup
               key={picker.id}
@@ -153,6 +155,29 @@ export function ProductPurchase({ name, brand, releaseYear, kind, images, images
             />
           ))}
         </div>
+
+        <div className="space-y-4 border-t pt-6">
+          <PriceBlock
+            t={t}
+            offer={offer}
+            newPrice={newPrice}
+            suggestion={suggestion}
+            onShowAvailable={() => suggestion && setSelection(suggestion.next)}
+          />
+
+          <Button
+            size="lg"
+            className={cn("hidden h-12 w-full text-base transition-all duration-200 active:scale-[0.98] lg:flex", added && "animate-[added-pop_300ms_ease-out]")}
+            disabled={!offer}
+            onClick={addToCart}
+          >
+            {added ? <CheckIcon data-icon="inline-start" /> : <ShoppingCartIcon data-icon="inline-start" />}
+            {!offer ? t.common.soldOut : added ? t.product.added : t.product.addToCart}
+          </Button>
+        </div>
+
+        {offer && <Facts t={t} offer={offer} />}
+        {offer && <Perks t={t} />}
       </div>
 
       {/* Mobile: price and button stay reachable while scrolling the pickers. */}
@@ -227,7 +252,6 @@ function PriceBlock({
 function Facts({ t, offer }: { t: Dict; offer: OfferSummary }) {
   const chips = [
     offer.ptaStatus,
-    offer.grade != null ? t.common.gradeChip(offer.grade) : null,
     offer.batteryHealth != null ? t.common.batteryChip(offer.batteryHealth) : null,
     offer.warrantyMonths > 0 ? t.common.monthWarranty(offer.warrantyMonths) : null, // no warranty is never shown as a pill
   ].filter(Boolean) as string[];
@@ -320,9 +344,7 @@ function PickerGroup({
               )}
               <span className="min-w-0">
                 <span className="block truncate text-sm font-semibold">{optionValueLabel(t, picker.type, value)}</span>
-                <span className={cn("block text-xs", state.status === "exact" ? "text-foreground/70" : "text-muted-foreground")}>
-                  {disabled || state.status === "soldout" ? t.common.soldOut : state.status === "exact" ? formatPkr(state.price!) : t.common.fromPrice(formatPkr(state.price!))}
-                </span>
+                {(disabled || state.status === "soldout") && <span className="block text-xs text-muted-foreground">{t.common.soldOut}</span>}
               </span>
             </button>
           );
